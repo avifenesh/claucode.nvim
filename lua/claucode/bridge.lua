@@ -18,26 +18,34 @@ local function parse_streaming_json(line)
   if not ok then return end
   
   -- Handle different event types
-  if result.type == "message" and result.subtype == "start" then
+  if result.type == "system" and result.subtype == "init" then
     if callbacks.on_start then
       callbacks.on_start()
     end
-  elseif result.type == "content" and result.subtype == "text" then
-    -- Real-time content streaming
-    if result.text and callbacks.on_stream then
-      callbacks.on_stream(result.text)
-    end
-  elseif result.type == "tool_use" then
-    -- Tool usage notification
-    if callbacks.on_tool_use then
-      callbacks.on_tool_use(result)
-    end
-    -- Check for file modifications
-    if result.name == "Edit" or result.name == "Write" then
-      local input = result.input
-      if input and input.file_path and callbacks.on_file_change then
-        callbacks.on_file_change(input.file_path)
+  elseif result.type == "assistant" then
+    -- Assistant message with content
+    if result.message and result.message.content then
+      for _, content in ipairs(result.message.content) do
+        if content.type == "text" and content.text and callbacks.on_stream then
+          callbacks.on_stream(content.text)
+        elseif content.type == "tool_use" then
+          if callbacks.on_tool_use then
+            callbacks.on_tool_use(content)
+          end
+          -- Check for file modifications
+          if content.name == "Edit" or content.name == "Write" then
+            local input = content.input
+            if input and input.file_path and callbacks.on_file_change then
+              callbacks.on_file_change(input.file_path)
+            end
+          end
+        end
       end
+    end
+  elseif result.type == "tool_response" then
+    -- Tool response - we could show this too if needed
+    if callbacks.on_tool_response then
+      callbacks.on_tool_response(result)
     end
   elseif result.type == "result" then
     -- Final result
