@@ -33,21 +33,22 @@ function M.open_claude_terminal()
     vim.api.nvim_set_current_buf(terminal_buf)
     terminal_win = vim.api.nvim_get_current_win()
     
-    -- Start Claude in the terminal with vim mode
-    -- Claude uses EDITOR env var to determine edit mode
-    local env = vim.tbl_extend("force", vim.fn.environ(), {
-      EDITOR = "vim",
-      CLAUDE_EDITOR = "vim"
-    })
-    
+    -- Start Claude in the terminal
     terminal_job_id = vim.fn.termopen(config.command, {
       cwd = vim.fn.getcwd(),
-      env = env,
       on_exit = function(job_id, exit_code, event_type)
         -- Clean up when terminal closes
         terminal_job_id = nil
       end
     })
+    
+    -- Enable vim mode after Claude starts
+    vim.defer_fn(function()
+      if terminal_job_id then
+        -- Send /vim command to enable vim mode
+        vim.api.nvim_chan_send(terminal_job_id, "/vim\n")
+      end
+    end, 1000)
     
     -- Set buffer name
     vim.api.nvim_buf_set_name(terminal_buf, 'Claude Terminal')
