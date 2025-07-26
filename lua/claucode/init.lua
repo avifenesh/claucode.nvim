@@ -42,8 +42,50 @@ M.config = {
   },
 }
 
+local function find_claude_command()
+  -- First check if 'claude' is in PATH
+  if vim.fn.executable("claude") == 1 then
+    return "claude"
+  end
+  
+  -- Check common installation paths
+  local common_paths = {
+    vim.fn.expand("~/.claude/local/claude"),
+    vim.fn.expand("~/node_modules/.bin/claude"),
+    "/usr/local/bin/claude",
+    "/opt/homebrew/bin/claude",
+  }
+  
+  for _, path in ipairs(common_paths) do
+    if vim.fn.executable(path) == 1 then
+      return path
+    end
+  end
+  
+  -- Try to find it using shell
+  local handle = io.popen("which claude 2>/dev/null")
+  if handle then
+    local result = handle:read("*a"):gsub("\n", "")
+    handle:close()
+    if result ~= "" and vim.fn.executable(result) == 1 then
+      return result
+    end
+  end
+  
+  return "claude" -- fallback
+end
+
 local function merge_config(user_config)
   M.config = vim.tbl_deep_extend("force", M.config, user_config or {})
+  
+  -- Auto-detect claude command if not specified
+  if M.config.command == "claude" and vim.fn.executable("claude") == 0 then
+    local detected = find_claude_command()
+    if detected ~= "claude" then
+      M.config.command = detected
+      vim.notify("Claude Code CLI found at: " .. detected, vim.log.levels.INFO)
+    end
+  end
 end
 
 function M.setup(user_config)

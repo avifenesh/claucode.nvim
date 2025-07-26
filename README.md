@@ -60,7 +60,8 @@ That's it! No complex setup, no heavy dependencies. Just a simple bridge that ge
 ```lua
 require("claucode").setup({
   -- Claude Code CLI command (default: "claude")
-  command = "claude",
+  -- Use full path if claude is not in your PATH
+  command = "claude",  -- or "/home/username/.claude/local/claude"
   
   -- Auto-start file watcher on setup
   auto_start_watcher = true,
@@ -157,6 +158,15 @@ It's literally just a bridge. Claude does the AI stuff, this plugin just helps y
 1. Ensure Claude Code CLI is installed: `npm install -g @anthropic-ai/claude-code`
 2. Verify API key is set: `echo $ANTHROPIC_API_KEY`
 3. Test Claude directly: `claude -p "test"`
+4. **If "Claude Code CLI not found" error**:
+   - Find where claude is installed: `which claude` in your terminal
+   - Update your config with the full path:
+     ```lua
+     require("claucode").setup({
+       command = "/full/path/to/claude",  -- e.g., "/home/user/.claude/local/claude"
+     })
+     ```
+   - Or ensure Neovim inherits your PATH by starting it from your shell
 
 ### File watcher issues
 
