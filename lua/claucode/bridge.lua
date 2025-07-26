@@ -84,7 +84,7 @@ function M.send_to_claude(prompt, opts)
   local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- Check if command exists first
-  if vim.fn.executable(config.command) == 0 then
+  if vim.fn.executable(config.command) == 0 and vim.fn.filereadable(config.command) == 0 then
     vim.notify("Claude Code CLI not found: '" .. config.command .. "'", vim.log.levels.ERROR)
     vim.notify("Please install it with: npm install -g @anthropic-ai/claude-code", vim.log.levels.ERROR)
     return false

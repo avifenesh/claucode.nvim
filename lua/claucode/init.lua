@@ -57,18 +57,17 @@ local function find_claude_command()
   }
   
   for _, path in ipairs(common_paths) do
-    if vim.fn.executable(path) == 1 then
-      return path
-    end
-  end
-  
-  -- Try to find it using shell
-  local handle = io.popen("which claude 2>/dev/null")
-  if handle then
-    local result = handle:read("*a"):gsub("\n", "")
-    handle:close()
-    if result ~= "" and vim.fn.executable(result) == 1 then
-      return result
+    -- Check if file exists and is readable
+    if vim.fn.filereadable(path) == 1 then
+      -- Test if we can actually run it
+      local handle = io.popen(path .. " --version 2>&1")
+      if handle then
+        local result = handle:read("*a")
+        handle:close()
+        if result:match("Claude Code") then
+          return path
+        end
+      end
     end
   end
   
