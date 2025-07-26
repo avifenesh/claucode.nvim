@@ -44,3 +44,4 @@ package-lock.json
 # Local configuration
 .luarc.json
 .claude/
+CLAUDE.md
