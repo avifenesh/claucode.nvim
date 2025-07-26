@@ -56,6 +56,7 @@ function M.send_to_claude(prompt, opts)
   
   -- Use print mode with streaming JSON output for real-time feedback
   table.insert(args, "-p")
+  table.insert(args, "--verbose")
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
