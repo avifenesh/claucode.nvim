@@ -5,34 +5,52 @@ local current_process = nil
 local output_buffer = ""
 local callbacks = {}
 
-local function create_temp_file(content)
-  local temp_dir = vim.fn.tempname()
-  vim.fn.mkdir(temp_dir, "p")
-  local temp_file = temp_dir .. "/claude_input.txt"
-  vim.fn.writefile(vim.split(content, "\n"), temp_file)
-  return temp_file
+local function escape_prompt(prompt)
+  -- Escape special characters for shell
+  return prompt:gsub('"', '\\"'):gsub('\n', '\\n')
 end
 
-local function parse_claude_output(data)
-  output_buffer = output_buffer .. data
-  
-  -- Look for file modifications in the output
-  local modifications = {}
-  
-  -- Pattern to match file paths that Claude might be working on
-  local file_pattern = "File: ([^\n]+)"
-  for file in output_buffer:gmatch(file_pattern) do
-    table.insert(modifications, file)
-  end
-  
-  -- Trigger callbacks for any registered listeners
-  if callbacks.on_output then
-    callbacks.on_output(data)
-  end
-  
-  if #modifications > 0 and callbacks.on_file_change then
-    for _, file in ipairs(modifications) do
-      callbacks.on_file_change(file)
+local function parse_claude_output(data, is_json)
+  if is_json then
+    -- Try to parse JSON response
+    local ok, result = pcall(vim.json.decode, data)
+    if ok and result.type == "result" then
+      if callbacks.on_result then
+        callbacks.on_result(result)
+      end
+      -- Extract the actual response text
+      if result.result and callbacks.on_output then
+        callbacks.on_output(result.result)
+      end
+    end
+  else
+    -- Plain text output
+    output_buffer = output_buffer .. data
+    
+    -- Look for file modifications in the output
+    local modifications = {}
+    
+    -- Pattern to match file paths that Claude might be working on
+    local file_pattern = "File: ([^\n]+)"
+    for file in output_buffer:gmatch(file_pattern) do
+      table.insert(modifications, file)
+    end
+    
+    -- Also look for "Writing to" patterns
+    local write_pattern = "Writing to ([^\n]+)"
+    for file in output_buffer:gmatch(write_pattern) do
+      table.insert(modifications, file)
+    end
+    
+    -- Trigger callbacks for any registered listeners
+    if callbacks.on_output then
+      callbacks.on_output(data)
+    end
+    
+    if #modifications > 0 and callbacks.on_file_change then
+      for _, file in ipairs(modifications) do
+        callbacks.on_file_change(file)
+      end
     end
   end
 end
@@ -44,32 +62,14 @@ function M.send_to_claude(prompt, opts)
   -- Build command arguments
   local args = {}
   
-  -- Add model if specified
-  if config.model then
-    table.insert(args, "--model")
-    table.insert(args, config.model)
-  end
+  -- Use print mode with JSON output for better parsing
+  table.insert(args, "-p")
+  table.insert(args, "--output-format")
+  table.insert(args, "json")
   
-  -- Add the prompt
-  if prompt and prompt ~= "" then
-    -- For complex prompts, use a temp file
-    if #prompt > 1000 or prompt:match("\n") then
-      local temp_file = create_temp_file(prompt)
-      table.insert(args, "-p")
-      table.insert(args, "@" .. temp_file)
-    else
-      table.insert(args, "-p")
-      table.insert(args, prompt)
-    end
-  end
-  
-  -- Add current file context if requested
-  if opts.include_current_file then
-    local bufnr = vim.api.nvim_get_current_buf()
-    local filename = vim.api.nvim_buf_get_name(bufnr)
-    if filename ~= "" then
-      table.insert(args, filename)
-    end
+  -- For simple prompts, add as argument
+  if prompt and prompt ~= "" and not use_stdin then
+    table.insert(args, prompt)
   end
   
   -- Reset output buffer
@@ -79,6 +79,9 @@ function M.send_to_claude(prompt, opts)
   local stdout = uv.new_pipe(false)
   local stderr = uv.new_pipe(false)
   local stdin = uv.new_pipe(false)
+  
+  -- For complex prompts, we'll use stdin
+  local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- Spawn the Claude process
   current_process = uv.spawn(config.command, {
@@ -90,6 +93,9 @@ function M.send_to_claude(prompt, opts)
     vim.schedule(function()
       if code ~= 0 then
         vim.notify("Claude Code exited with code: " .. code, vim.log.levels.ERROR)
+      else
+        -- Parse the complete JSON output
+        parse_claude_output(json_buffer, true)
       end
       current_process = nil
       
@@ -104,6 +110,9 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
+  -- Buffer for collecting JSON output
+  local json_buffer = ""
+  
   -- Read stdout
   stdout:read_start(function(err, data)
     if err then
@@ -114,9 +123,8 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
-      vim.schedule(function()
-        parse_claude_output(data)
-      end)
+      json_buffer = json_buffer .. data
+      -- Try to parse complete JSON when process ends
     end
   end)
   
@@ -136,8 +144,19 @@ function M.send_to_claude(prompt, opts)
     end
   end)
   
-  -- Close stdin as we're not using it for interactive communication
-  stdin:close()
+  -- Write prompt to stdin if needed
+  if use_stdin and prompt then
+    stdin:write(prompt, function(err)
+      if err then
+        vim.schedule(function()
+          vim.notify("Error writing to stdin: " .. err, vim.log.levels.ERROR)
+        end)
+      end
+      stdin:close()
+    end)
+  else
+    stdin:close()
+  end
   
   return true
 end

@@ -79,6 +79,15 @@ function M.claude(args)
     end
   end)
   
+  -- Register result callback for JSON responses
+  bridge.register_callback("on_result", function(result)
+    if result.is_error then
+      vim.notify("Claude error: " .. (result.error or "Unknown error"), vim.log.levels.ERROR)
+    else
+      vim.notify("Claude completed in " .. (result.duration_ms or 0) .. "ms", vim.log.levels.INFO)
+    end
+  end)
+  
   -- Send to Claude
   local success = bridge.send_to_claude(prompt, {
     include_current_file = include_file,
