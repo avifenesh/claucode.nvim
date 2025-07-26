@@ -6,7 +6,36 @@ function M.setup(cfg)
   config = cfg
 end
 
-function M.claude(args)
+-- Store visual selection globally to preserve it
+local visual_selection = nil
+
+function M.store_visual_selection()
+  local start_pos = vim.fn.getpos("'<")
+  local end_pos = vim.fn.getpos("'>")
+  local lines = vim.api.nvim_buf_get_lines(
+    0,
+    start_pos[2] - 1,
+    end_pos[2],
+    false
+  )
+  
+  if #lines > 0 then
+    local mode = vim.fn.visualmode()
+    -- Adjust first and last line based on column positions for character-wise selection
+    if mode == "v" then
+      lines[1] = lines[1]:sub(start_pos[3])
+      if #lines > 1 then
+        lines[#lines] = lines[#lines]:sub(1, end_pos[3])
+      else
+        lines[1] = lines[1]:sub(1, end_pos[3] - start_pos[3] + 1)
+      end
+    end
+    
+    visual_selection = table.concat(lines, "\n")
+  end
+end
+
+function M.claude(args, from_visual)
   local bridge = require("claucode.bridge")
   
   if args == "" then
@@ -27,33 +56,11 @@ function M.claude(args)
     prompt = args:gsub("^%-f%s+", "")
   end
   
-  -- If in visual mode, get selected text
-  local mode = vim.fn.mode()
-  if mode == "v" or mode == "V" or mode == "\22" then
-    -- Get visual selection
-    local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos("'>")
-    local lines = vim.api.nvim_buf_get_lines(
-      0,
-      start_pos[2] - 1,
-      end_pos[2],
-      false
-    )
-    
-    if #lines > 0 then
-      -- Adjust first and last line based on column positions
-      if mode == "v" then
-        lines[1] = lines[1]:sub(start_pos[3])
-        if #lines > 1 then
-          lines[#lines] = lines[#lines]:sub(1, end_pos[3])
-        else
-          lines[1] = lines[1]:sub(1, end_pos[3] - start_pos[3] + 1)
-        end
-      end
-      
-      local selection = table.concat(lines, "\n")
-      prompt = prompt .. "\n\nSelected code:\n```\n" .. selection .. "\n```"
-    end
+  -- If called from visual mode or we have a stored selection, include it
+  if from_visual and visual_selection then
+    prompt = prompt .. "\n\nSelected code:\n```\n" .. visual_selection .. "\n```"
+    -- Clear the selection after use
+    visual_selection = nil
   end
   
   -- Add file context if requested or if we have a current file
@@ -69,17 +76,12 @@ function M.claude(args)
     vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.INFO)
   end
   
-  -- Register output callback to show Claude's response
+  -- Register output callback to show Claude's response in popup
+  local ui = require("claucode.ui")
   bridge.register_callback("on_output", function(data)
-    -- Split data into lines and display them
-    local lines = vim.split(data, "\n")
-    for _, line in ipairs(lines) do
-      if line ~= "" then
-        vim.schedule(function()
-          print(line)
-        end)
-      end
-    end
+    vim.schedule(function()
+      ui.show_response(data)
+    end)
   end)
   
   -- Register result callback for JSON responses
@@ -108,9 +110,8 @@ end
 
 function M.claude_explain()
   -- Explain the current code
-  local mode = vim.fn.mode()
-  if mode == "v" or mode == "V" or mode == "\22" then
-    M.claude("Explain this code")
+  if visual_selection then
+    M.claude("Explain this code", true)
   else
     M.claude("--file Explain this file")
   end

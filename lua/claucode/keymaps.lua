@@ -48,7 +48,7 @@ function M.setup(config)
   })
   
   -- Visual mode mappings
-  map("v", prefix .. "c", ":<C-u>Claude ", {
+  map("v", prefix .. "c", ":<C-u>lua require('claucode.commands').store_visual_selection()<CR>:Claude ", {
     desc = "Claude prompt with selection",
     silent = false,
   })

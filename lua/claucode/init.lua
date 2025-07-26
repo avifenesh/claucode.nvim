@@ -103,9 +103,15 @@ function M.setup(user_config)
   
   -- Create user commands
   vim.api.nvim_create_user_command("Claude", function(opts)
-    require("claucode.commands").claude(opts.args)
+    -- Check if called from visual mode
+    local from_visual = opts.range > 0
+    if from_visual then
+      require("claucode.commands").store_visual_selection()
+    end
+    require("claucode.commands").claude(opts.args, from_visual)
   end, {
     nargs = "*",
+    range = true,
     desc = "Send a prompt to Claude Code CLI",
   })
   
