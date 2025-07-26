@@ -68,30 +68,53 @@ function M.setup(config)
   -- Which-key integration (if available)
   local ok, which_key = pcall(require, "which-key")
   if ok then
-    which_key.register({
-      [prefix] = {
-        name = "Claude Code",
-        c = { "Prompt" },
-        f = { "Review File" },
-        e = { "Explain" },
-        x = { "Fix" },
-        t = { "Generate Tests" },
-        r = { "Review Changes" },
-        s = { "Stop" },
-        S = { "Start Watcher" },
-        a = { "Complete at Cursor" },
-      }
-    }, { mode = "n" })
-    
-    which_key.register({
-      [prefix] = {
-        name = "Claude Code",
-        c = { "Prompt with Selection" },
-        e = { "Explain Selection" },
-        x = { "Fix Selection" },
-        t = { "Test Selection" },
-      }
-    }, { mode = "v" })
+    -- Try which-key v3 format first (add method)
+    if which_key.add then
+      which_key.add({
+        { prefix, group = "Claude Code" },
+        { prefix .. "c", desc = "Prompt", mode = "n" },
+        { prefix .. "f", desc = "Review File", mode = "n" },
+        { prefix .. "e", desc = "Explain", mode = "n" },
+        { prefix .. "x", desc = "Fix", mode = "n" },
+        { prefix .. "t", desc = "Generate Tests", mode = "n" },
+        { prefix .. "r", desc = "Review Changes", mode = "n" },
+        { prefix .. "s", desc = "Stop", mode = "n" },
+        { prefix .. "S", desc = "Start Watcher", mode = "n" },
+        { prefix .. "a", desc = "Complete at Cursor", mode = "n" },
+        
+        { prefix, group = "Claude Code", mode = "v" },
+        { prefix .. "c", desc = "Prompt with Selection", mode = "v" },
+        { prefix .. "e", desc = "Explain Selection", mode = "v" },
+        { prefix .. "x", desc = "Fix Selection", mode = "v" },
+        { prefix .. "t", desc = "Test Selection", mode = "v" },
+      })
+    else
+      -- Fall back to which-key v2 format (register method)
+      which_key.register({
+        [prefix] = {
+          name = "Claude Code",
+          c = { ":Claude ", "Prompt" },
+          f = { "<cmd>lua require('claucode.commands').claude_file()<CR>", "Review File" },
+          e = { "<cmd>lua require('claucode.commands').claude_explain()<CR>", "Explain" },
+          x = { "<cmd>lua require('claucode.commands').claude_fix()<CR>", "Fix" },
+          t = { "<cmd>lua require('claucode.commands').claude_test()<CR>", "Generate Tests" },
+          r = { "<cmd>ClaudeReview<CR>", "Review Changes" },
+          s = { "<cmd>ClaudeStop<CR>", "Stop" },
+          S = { "<cmd>ClaudeStart<CR>", "Start Watcher" },
+          a = { "<cmd>lua require('claucode.commands').claude_complete()<CR>", "Complete at Cursor" },
+        }
+      }, { mode = "n" })
+      
+      which_key.register({
+        [prefix] = {
+          name = "Claude Code",
+          c = { ":<C-u>Claude ", "Prompt with Selection" },
+          e = { ":<C-u>lua require('claucode.commands').claude_explain()<CR>", "Explain Selection" },
+          x = { ":<C-u>lua require('claucode.commands').claude_fix()<CR>", "Fix Selection" },
+          t = { ":<C-u>lua require('claucode.commands').claude_test()<CR>", "Test Selection" },
+        }
+      }, { mode = "v" })
+    end
   end
 end
 
