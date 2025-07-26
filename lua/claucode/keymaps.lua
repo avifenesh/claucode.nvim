@@ -94,12 +94,15 @@ function M.setup(config)
         { prefix .. "s", desc = "Stop", mode = "n" },
         { prefix .. "S", desc = "Start Watcher", mode = "n" },
         { prefix .. "a", desc = "Complete at Cursor", mode = "n" },
+        { prefix .. "o", desc = "Open Terminal", mode = "n" },
+        { prefix .. "T", desc = "Toggle Terminal", mode = "n" },
         
         { prefix, group = "Claude Code", mode = "v" },
         { prefix .. "c", desc = "Prompt with Selection", mode = "v" },
         { prefix .. "e", desc = "Explain Selection", mode = "v" },
         { prefix .. "x", desc = "Fix Selection", mode = "v" },
         { prefix .. "t", desc = "Test Selection", mode = "v" },
+        { prefix .. "T", desc = "Send to Terminal", mode = "v" },
       })
     else
       -- Fall back to which-key v2 format (register method)
@@ -115,16 +118,19 @@ function M.setup(config)
           s = { "<cmd>ClaudeStop<CR>", "Stop" },
           S = { "<cmd>ClaudeStart<CR>", "Start Watcher" },
           a = { "<cmd>lua require('claucode.commands').claude_complete()<CR>", "Complete at Cursor" },
+          o = { "<cmd>ClaudeTerminal<CR>", "Open Terminal" },
+          T = { "<cmd>ClaudeTerminalToggle<CR>", "Toggle Terminal" },
         }
       }, { mode = "n" })
       
       which_key.register({
         [prefix] = {
           name = "Claude Code",
-          c = { ":<C-u>Claude ", "Prompt with Selection" },
+          c = { ":<C-u>lua require('claucode.commands').store_visual_selection()<CR>:Claude ", "Prompt with Selection" },
           e = { ":<C-u>lua require('claucode.commands').claude_explain()<CR>", "Explain Selection" },
           x = { ":<C-u>lua require('claucode.commands').claude_fix()<CR>", "Fix Selection" },
           t = { ":<C-u>lua require('claucode.commands').claude_test()<CR>", "Test Selection" },
+          T = { ":<C-u>lua require('claucode.terminal').send_current_selection_to_terminal()<CR>", "Send to Terminal" },
         }
       }, { mode = "v" })
     end
