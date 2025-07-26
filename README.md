@@ -1,63 +1,94 @@
-# claude-code.nvim
+# claucode.nvim
 
-Neovim bridge plugin for Claude Code CLI - Connect Neovim with Claude Code running in your terminal.
+A lightweight Neovim plugin that bridges your editor with [Claude Code CLI](https://github.com/anthropics/claude-code), enabling AI-powered coding assistance without leaving Neovim.
 
-![Neovim](https://img.shields.io/badge/Neovim-0.7%2B-green.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+## ✨ Features
 
-## What is this?
+- 🔌 **Simple Bridge**: Connects Neovim to Claude Code CLI running in your terminal
+- 📁 **Auto-reload**: Automatically detects and reloads files modified by Claude
+- 💬 **Quick Commands**: Send prompts and code context directly from Neovim
+- 🔍 **Change Review**: Preview Claude's modifications before accepting
+- ⌨️  **Smart Keymaps**: Non-conflicting keyboard shortcuts
 
-This plugin creates a **bridge** between Neovim and the Claude Code CLI. It does NOT replace Claude Code or run AI inside Neovim. Instead, it:
+## 📋 Requirements
 
-- 📤 Sends context from Neovim to Claude Code CLI
-- 📥 Shows file changes made by Claude in Neovim  
-- ⚡ Provides quick prompts without switching windows
-- 🔄 Keeps your editor and CLI in sync
+- Neovim >= 0.5.0
+- [Claude Code CLI](https://github.com/anthropics/claude-code) installed and authenticated
 
-## How it works
+## 📦 Installation
 
-```
-┌─────────────────┐         ┌──────────────────┐
-│    Neovim       │ <-----> │  Claude Code CLI │
-│                 │         │   (Terminal)     │
-│  You edit here  │         │  Claude runs here│
-└─────────────────┘         └──────────────────┘
-        ↑                            ↑
-        └────── Bridge Plugin ───────┘
-```
-
-## Requirements
-
-- Neovim >= 0.7.0
-- Node.js and npm (for Claude Code CLI installation)
-- Claude Code CLI installed: `npm install -g @anthropic-ai/claude-code`
-- A Claude account with active billing or Claude Pro/Max subscription
-
-## Installation
-
-### Using lazy.nvim
+<details>
+<summary><b>lazy.nvim</b></summary>
 
 ```lua
 {
-  "anthropics/claude-code.nvim",
+  "your-username/claucode.nvim",
+  event = "VeryLazy",
   config = function()
-    require("claude-code").setup()
+    require("claucode").setup()
   end,
 }
 ```
+</details>
 
-### Using packer.nvim
+<details>
+<summary><b>packer.nvim</b></summary>
 
 ```lua
 use {
-  'anthropics/claude-code.nvim',
+  "your-username/claucode.nvim",
   config = function()
-    require('claude-code').setup()
+    require("claucode").setup()
   end
 }
 ```
+</details>
 
-## Quick Start
+<details>
+<summary><b>vim-plug</b></summary>
+
+```vim
+Plug 'your-username/claucode.nvim'
+```
+
+Add to your `init.lua`:
+```lua
+require("claucode").setup()
+```
+</details>
+
+## ⚙️ Configuration
+
+Default configuration:
+
+```lua
+require("claucode").setup({
+  -- Claude Code CLI command
+  command = "claude",
+  
+  -- Model selection
+  model = "claude-3-5-sonnet-20241022",
+  
+  -- Auto-start file watcher
+  auto_start_watcher = true,
+  
+  -- Keymaps (ai prefix for AI-related actions)
+  keymaps = {
+    enable = true,
+    prefix = "<leader>ai",
+  }
+  
+  -- File watcher settings
+  watcher = {
+    debounce = 100,
+    ignore_patterns = { "%.git/", "node_modules/", "%.swp$" },
+  },
+})
+```
+
+## 🚀 Usage
+
+### Getting Started
 
 1. **Start Claude Code** in your terminal:
    ```bash
@@ -65,121 +96,58 @@ use {
    claude
    ```
 
-2. **Open Neovim** in the same project
+2. **Open Neovim** in the same directory
 
-3. **Use the bridge**:
-   - `:Claude fix this function` - Send quick prompt
-   - `:ClaudeContext` - Share current file with Claude
-   - `<leader>cp` - Quick prompt with keybinding
+3. **Use commands** to interact with Claude
 
-4. **When Claude edits files**, Neovim auto-reloads them!
+### Commands
 
-## Configuration
+| Command | Description |
+|---------|-------------|
+| `:Claude <prompt>` | Send a prompt to Claude |
+| `:ClaudeReview` | Review pending file changes |
+| `:ClaudeStop` | Stop the file watcher |
+| `:ClaudeStart` | Start the file watcher |
 
-```lua
-require('claude-code').setup({
-  -- File watching
-  watcher = {
-    enabled = true,      -- Watch for Claude's changes
-    auto_reload = true,  -- Auto-reload changed files
-    diff_preview = true, -- Preview changes before applying
-  },
-  
-  -- Quick prompts
-  prompts = {
-    fix = "Fix the issues in this code",
-    explain = "Explain what this code does",
-    improve = "Improve this code",
-    test = "Write tests for this code",
-    document = "Add documentation",
-  },
-  
-  -- Keymaps
-  keymaps = {
-    quick_prompt = '<leader>cc',    -- Send prompt to Claude
-    share_context = '<leader>cx',   -- Share context (x for conteXt)
-    review_changes = '<leader>cd',  -- Review diff (d for diff)
-  },
-})
+### Keymaps
+
+Default keymaps use `<leader>ai` prefix (for AI-related actions):
+
+| Keymap | Description | Mode |
+|--------|-------------|------|
+| `<leader>aic` | Open Claude prompt | Normal/Visual |
+| `<leader>air` | Review changes | Normal |
+| `<leader>ais` | Stop watcher | Normal |
+| `<leader>aiS` | Start watcher | Normal |
+| `<leader>aie` | Explain code | Normal/Visual |
+| `<leader>aix` | Fix issues | Normal/Visual |
+| `<leader>ait` | Generate tests | Normal/Visual |
+| `<leader>aif` | Review file | Normal |
+| `<leader>aia` | Complete at cursor | Normal |
+
+> **Note**: Using `ai` prefix groups all AI-related actions together and avoids conflicts with common mappings.
+
+## 🔧 How It Works
+
+```mermaid
+graph LR
+    A[Neovim] -->|Send Prompt| B[claucode.nvim]
+    B -->|Execute| C[Claude CLI]
+    C -->|Modify Files| D[File System]
+    D -->|File Watcher| B
+    B -->|Auto-reload| A
 ```
 
-## Commands
+This plugin acts as a bridge:
+1. Send prompts from Neovim to Claude Code CLI
+2. Claude processes in the terminal and modifies files
+3. File watcher detects changes
+4. Modified buffers auto-reload in Neovim
 
-### Core Commands
+## 🤝 Contributing
 
-- `:Claude [prompt]` - Send a prompt to Claude Code
-- `:ClaudeContext [selection]` - Share current file/selection
-- `:ClaudeReview` - Review pending changes from Claude
-- `:ClaudeStatus` - Check connection status
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Quick Action Commands
+## 📄 License
 
-- `:ClaudeFix` - Ask Claude to fix issues
-- `:ClaudeExplain` - Ask Claude to explain code
-- `:ClaudeImprove` - Ask Claude to improve code
-- `:ClaudeTest` - Ask Claude to write tests
-- `:ClaudeDocument` - Ask Claude to add docs
-
-## Keybindings
-
-Default keybindings (customizable):
-
-- `<leader>cc` - Send prompt to Claude
-- `<leader>cx` - Share context with Claude
-- `<leader>cd` - Review diff/changes from Claude
-
-In visual mode, these commands include your selection!
-
-## Workflow Example
-
-1. Working on a function with a bug:
-   ```vim
-   :Claude fix the null pointer issue in this function
-   ```
-
-2. Claude analyzes and edits the file in the terminal
-
-3. Neovim detects the change and shows a diff:
-   ```
-   Claude modified: src/main.js
-   Press 'a' to accept, 'r' to reject
-   ```
-
-4. You review and accept the changes
-
-## Troubleshooting
-
-### Claude Code not connected?
-
-1. Make sure Claude Code is running in your terminal
-2. Check `:ClaudeStatus` for connection info
-3. Both Neovim and Claude Code must be in the same project directory
-
-### Changes not appearing?
-
-- Try `:ClaudeReload` to manually refresh
-- Check if file watching is enabled in config
-- Ensure you have write permissions
-
-## License
-
-MIT
-
-## Contributing
-
-This is a community bridge plugin. Contributions welcome!
-
-- Report issues: [GitHub Issues](https://github.com/anthropics/claude-code.nvim/issues)
-- Submit PRs: Fork and create a pull request
-
-## Not a Copilot!
-
-This plugin is NOT:
-- ❌ An autocomplete tool
-- ❌ Inline AI suggestions
-- ❌ A replacement for Claude Code CLI
-
-It IS:
-- ✅ A bridge between Neovim and Claude Code
-- ✅ A way to use Claude Code without leaving Neovim
-- ✅ A tool for seamless editor-CLI integration
+MIT - see [LICENSE](LICENSE) for details.

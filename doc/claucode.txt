@@ -1,0 +1,169 @@
+*claucode.txt*    Bridge between Neovim and Claude Code CLI
+
+==============================================================================
+CONTENTS                                                    *claucode-contents*
+
+    1. Introduction ................................ |claucode-introduction|
+    2. Requirements ................................ |claucode-requirements|
+    3. Installation ................................ |claucode-installation|
+    4. Configuration ............................... |claucode-configuration|
+    5. Commands .................................... |claucode-commands|
+    6. Keymaps ..................................... |claucode-keymaps|
+    7. Functions ................................... |claucode-functions|
+    8. FAQ ......................................... |claucode-faq|
+
+==============================================================================
+INTRODUCTION                                            *claucode-introduction*
+
+claucode.nvim is a Neovim plugin that bridges your editor with Claude Code
+CLI, enabling seamless AI-powered coding assistance directly from Neovim.
+
+This plugin acts as a bridge - it does NOT implement AI features directly.
+Instead, it facilitates communication between Neovim and Claude Code running
+in your terminal.
+
+==============================================================================
+REQUIREMENTS                                            *claucode-requirements*
+
+- Neovim >= 0.5.0
+- Claude Code CLI installed: `npm install -g @anthropic-ai/claude-code`
+- Git (for diff functionality)
+
+==============================================================================
+INSTALLATION                                            *claucode-installation*
+
+Using lazy.nvim:
+>lua
+    {
+      "your-username/claucode.nvim",
+      event = "VeryLazy",
+      config = function()
+        require("claucode").setup()
+      end,
+    }
+<
+
+Using packer.nvim:
+>lua
+    use {
+      "your-username/claucode.nvim",
+      config = function()
+        require("claucode").setup()
+      end
+    }
+<
+
+==============================================================================
+CONFIGURATION                                          *claucode-configuration*
+
+Setup function accepts the following options:
+>lua
+    require("claucode").setup({
+      -- Claude Code CLI command
+      command = "claude",
+      
+      -- Default model to use
+      model = "claude-3-5-sonnet-20241022",
+      
+      -- Auto-start file watcher on setup
+      auto_start_watcher = true,
+      
+      -- Enable default keymaps
+      keymaps = {
+        enable = true,
+        prefix = "<leader>c",
+      },
+      
+      -- File watcher settings
+      watcher = {
+        debounce = 100,
+        ignore_patterns = { "%.git/", "node_modules/", "%.swp$" },
+      },
+      
+      -- Bridge settings
+      bridge = {
+        timeout = 30000,
+        max_output = 1048576, -- 1MB
+      },
+      
+      -- UI settings
+      ui = {
+        diff = {
+          width = 0.8,
+          height = 0.8,
+          border = "rounded",
+        },
+      },
+    })
+<
+
+==============================================================================
+COMMANDS                                                    *claucode-commands*
+
+:Claude {prompt}                                                      *:Claude*
+    Send a prompt to Claude Code CLI. The prompt can include special flags:
+    - --file or -f: Include current file context
+
+:ClaudeReview                                                   *:ClaudeReview*
+    Review pending changes from Claude with diff preview.
+
+:ClaudeStop                                                       *:ClaudeStop*
+    Stop Claude Code bridge and file watcher.
+
+:ClaudeStart                                                     *:ClaudeStart*
+    Start Claude Code file watcher.
+
+==============================================================================
+KEYMAPS                                                      *claucode-keymaps*
+
+Default keymaps use <leader>c prefix. In normal mode:
+
+<leader>cc    Open Claude prompt
+<leader>cf    Review current file
+<leader>ce    Explain code
+<leader>cx    Fix issues
+<leader>ct    Generate tests
+<leader>cr    Review changes
+<leader>cs    Stop Claude
+<leader>cS    Start watcher
+<leader>ca    Complete at cursor
+
+In visual mode:
+<leader>cc    Send selection with prompt
+<leader>ce    Explain selection
+<leader>cx    Fix selection
+<leader>ct    Test selection
+
+==============================================================================
+FUNCTIONS                                                  *claucode-functions*
+
+require("claucode").setup({config})                          *claucode.setup()*
+    Initialize the plugin with optional configuration.
+
+require("claucode.bridge").send_to_claude(prompt, opts)
+    Send a prompt to Claude Code CLI.
+
+require("claucode.watcher").start(config)
+    Start the file watcher.
+
+require("claucode.watcher").stop()
+    Stop the file watcher.
+
+require("claucode.review").show_pending_changes()
+    Show pending changes in a review window.
+
+==============================================================================
+FAQ                                                              *claucode-faq*
+
+Q: How is this different from Copilot?
+A: This plugin bridges Neovim with Claude Code CLI. It doesn't provide inline
+   completions but allows you to interact with Claude for larger tasks.
+
+Q: Do I need to run Claude Code separately?
+A: Yes, Claude Code should be running in your terminal in the same project.
+
+Q: Can I use this without Git?
+A: Yes, but diff functionality will be limited.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

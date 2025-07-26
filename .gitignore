@@ -21,6 +21,7 @@ test.vim
 
 # Documentation
 doc/tags
+tags
 
 # Development
 .nvim/
@@ -36,3 +37,10 @@ package-lock.json
 
 # Build artifacts
 *.rock
+
+# Logs
+*.log
+
+# Local configuration
+.luarc.json
+.claude/
