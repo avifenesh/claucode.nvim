@@ -1,0 +1,38 @@
+# Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Lua
+luac.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+claude-code-cache/
+
+# Testing
+test.vim
+.test_output/
+
+# Documentation
+doc/tags
+
+# Development
+.nvim/
+.vim/
+
+# Node (for development tools)
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.rock

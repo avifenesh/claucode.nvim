@@ -1,0 +1,184 @@
+*claude-code.txt*    Neovim integration for Claude Code CLI
+
+==============================================================================
+CONTENTS                                            *claude-code-contents*
+
+  1. Introduction ........................... |claude-code-introduction|
+  2. Requirements ........................... |claude-code-requirements|
+  3. Installation ........................... |claude-code-installation|
+  4. Configuration .......................... |claude-code-configuration|
+  5. Commands ............................... |claude-code-commands|
+  6. Mappings ............................... |claude-code-mappings|
+  7. API ..................................... |claude-code-api|
+  8. Troubleshooting ........................ |claude-code-troubleshooting|
+
+==============================================================================
+INTRODUCTION                                      *claude-code-introduction*
+
+Claude Code is a Neovim plugin that integrates the Claude Code CLI, bringing
+AI-powered code completion, editing, and chat capabilities directly into your
+editor.
+
+Features:
+- Inline code completion
+- Code editing with AI assistance
+- Interactive chat interface
+- Context-aware suggestions
+- Seamless integration with Neovim workflows
+
+==============================================================================
+REQUIREMENTS                                      *claude-code-requirements*
+
+- Neovim >= 0.5.0
+- Claude Code CLI installed (`npm install -g @anthropic-ai/claude-code`)
+- Valid Claude API credentials
+
+==============================================================================
+INSTALLATION                                      *claude-code-installation*
+
+Using lazy.nvim:
+>lua
+  {
+    "your-username/claude-code.nvim",
+    dependencies = {
+      "nvim-lua/plenary.nvim", -- Optional, for testing
+    },
+    config = function()
+      require("claude-code").setup({
+        -- your configuration
+      })
+    end,
+  }
+<
+
+Using packer.nvim:
+>lua
+  use {
+    "your-username/claude-code.nvim",
+    config = function()
+      require("claude-code").setup({})
+    end
+  }
+<
+
+==============================================================================
+CONFIGURATION                                    *claude-code-configuration*
+
+Default configuration:
+>lua
+  require("claude-code").setup({
+    command = 'claude',           -- CLI command
+    model = 'sonnet',            -- Model to use
+    auto_start = false,          -- Auto-start on Neovim launch
+    
+    keymaps = {
+      enable = true,
+      complete = '<leader>cc',   -- Complete at cursor
+      edit = '<leader>ce',       -- Edit selection
+      chat = '<leader>ct',       -- Open chat
+      accept = '<Tab>',          -- Accept suggestion
+      dismiss = '<Esc>',         -- Dismiss suggestion
+    },
+    
+    ui = {
+      chat = {
+        width = 0.8,             -- 80% of screen width
+        height = 0.8,            -- 80% of screen height
+        border = 'rounded',
+      },
+      inline = {
+        enabled = true,
+        highlight = 'Comment',
+      },
+    },
+    
+    log_level = vim.log.levels.INFO,
+  })
+<
+
+==============================================================================
+COMMANDS                                            *claude-code-commands*
+
+:ClaudeCode {subcommand}                                      *:ClaudeCode*
+    Main command with subcommands:
+    - start: Start the Claude Code process
+    - stop: Stop the Claude Code process
+    - status: Show current status
+
+:ClaudeComplete                                          *:ClaudeComplete*
+    Request code completion at the current cursor position
+
+:ClaudeEdit [{instruction}]                                  *:ClaudeEdit*
+    Edit the current visual selection with optional instruction.
+    If no instruction is provided, you'll be prompted.
+
+:ClaudeChat [{message}]                                      *:ClaudeChat*
+    Open the chat interface with an optional initial message
+
+:ClaudeContext                                            *:ClaudeContext*
+    Display the current context being sent to Claude
+
+:ClaudeCodeHealth                                      *:ClaudeCodeHealth*
+    Run health checks (Neovim 0.9.0+)
+
+==============================================================================
+MAPPINGS                                              *claude-code-mappings*
+
+Default mappings (can be customized in setup):
+
+Normal mode:
+  <leader>cc    Complete code at cursor
+  <leader>ct    Toggle chat interface
+
+Visual mode:
+  <leader>ce    Edit selected code
+
+Insert mode:
+  <Tab>         Accept inline suggestion
+  <Esc>         Dismiss inline suggestion
+
+Chat window:
+  q, <Esc>      Close chat
+  <CR>          Send message (normal mode)
+  <C-CR>        Send message (insert mode)
+  <C-l>         Clear chat history
+
+==============================================================================
+API                                                      *claude-code-api*
+
+The plugin exposes the following Lua API:
+
+require("claude-code").setup({config})              *claude-code.setup()*
+    Initialize the plugin with the given configuration
+
+require("claude-code").start()                       *claude-code.start()*
+    Start the Claude Code process
+
+require("claude-code").stop()                         *claude-code.stop()*
+    Stop the Claude Code process
+
+require("claude-code").status()                     *claude-code.status()*
+    Check if Claude Code is running
+
+==============================================================================
+TROUBLESHOOTING                                  *claude-code-troubleshooting*
+
+1. Claude Code command not found:
+   - Ensure Claude Code CLI is installed: `npm install -g @anthropic-ai/claude-code`
+   - Check that the command is in your PATH
+
+2. Authentication errors:
+   - Set up your API key: `export ANTHROPIC_API_KEY=your-key`
+   - Or use Claude Code authentication: `claude auth login`
+
+3. No completions appearing:
+   - Check if the process is running: `:ClaudeCode status`
+   - Look for errors in `:messages`
+   - Ensure you're in a supported file type
+
+4. Performance issues:
+   - Try reducing context size in configuration
+   - Check `:ClaudeCodeHealth` for diagnostics
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
