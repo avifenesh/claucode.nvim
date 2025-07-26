@@ -119,20 +119,7 @@ end
 
 function M.stream_content(text)
   content_accumulator = content_accumulator .. text
-  
-  -- Update popup with accumulated content
-  if not popup_buf or not vim.api.nvim_buf_is_valid(popup_buf) then
-    M.show_response(content_accumulator)
-  else
-    local lines = vim.split(content_accumulator, '\n')
-    vim.api.nvim_buf_set_lines(popup_buf, 0, -1, false, lines)
-    
-    -- Auto-scroll to bottom if window exists
-    if popup_win and vim.api.nvim_win_is_valid(popup_win) then
-      local line_count = vim.api.nvim_buf_line_count(popup_buf)
-      vim.api.nvim_win_set_cursor(popup_win, {line_count, 0})
-    end
-  end
+  -- Don't show popup until we have the complete response
 end
 
 function M.on_tool_use(tool_data)

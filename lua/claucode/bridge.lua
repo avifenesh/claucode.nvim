@@ -68,6 +68,10 @@ function M.send_to_claude(prompt, opts)
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
+  -- Accept edits automatically in non-interactive mode
+  table.insert(args, "--permission-mode")
+  table.insert(args, "acceptEdits")
+  
   -- For simple prompts, add as argument
   if prompt and prompt ~= "" and not use_stdin then
     table.insert(args, prompt)
