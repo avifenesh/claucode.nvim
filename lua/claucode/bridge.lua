@@ -84,6 +84,8 @@ function M.send_to_claude(prompt, opts)
   local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- Spawn the Claude process
+  vim.notify("Running: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
+  
   current_process = uv.spawn(config.command, {
     args = args,
     stdio = {stdin, stdout, stderr},
@@ -93,6 +95,9 @@ function M.send_to_claude(prompt, opts)
     vim.schedule(function()
       if code ~= 0 then
         vim.notify("Claude Code exited with code: " .. code, vim.log.levels.ERROR)
+        if stderr_buffer ~= "" then
+          vim.notify("Error details: " .. stderr_buffer, vim.log.levels.ERROR)
+        end
       else
         -- Parse the complete JSON output
         parse_claude_output(json_buffer, true)
@@ -128,6 +133,9 @@ function M.send_to_claude(prompt, opts)
     end
   end)
   
+  -- Collect stderr for better error reporting
+  local stderr_buffer = ""
+  
   -- Read stderr
   stderr:read_start(function(err, data)
     if err then
@@ -138,8 +146,12 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
+      stderr_buffer = stderr_buffer .. data
       vim.schedule(function()
-        vim.notify("Claude: " .. data, vim.log.levels.WARN)
+        -- Only show stderr if it contains actual errors
+        if data:match("error") or data:match("Error") or data:match("failed") then
+          vim.notify("Claude error: " .. data, vim.log.levels.ERROR)
+        end
       end)
     end
   end)
