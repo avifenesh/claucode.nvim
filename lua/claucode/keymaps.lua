@@ -10,7 +10,7 @@ function M.setup(config)
   local prefix = config.keymaps.prefix or "<leader>c"
   
   -- Normal mode mappings
-  map("n", prefix .. "c", "<cmd>Claude ", {
+  map("n", prefix .. "c", ":Claude ", {
     desc = "Claude prompt",
     silent = false,
   })
