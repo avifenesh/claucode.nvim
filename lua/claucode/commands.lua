@@ -76,21 +76,34 @@ function M.claude(args, from_visual)
     vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.INFO)
   end
   
-  -- Register output callback to show Claude's response in popup
+  -- Register streaming callbacks for real-time feedback
   local ui = require("claucode.ui")
-  bridge.register_callback("on_output", function(data)
+  
+  bridge.register_callback("on_start", function()
     vim.schedule(function()
-      ui.show_response(data)
+      ui.start_streaming()
     end)
   end)
   
-  -- Register result callback for JSON responses
+  bridge.register_callback("on_stream", function(text)
+    vim.schedule(function()
+      ui.stream_content(text)
+    end)
+  end)
+  
+  bridge.register_callback("on_tool_use", function(tool_data)
+    vim.schedule(function()
+      ui.on_tool_use(tool_data)
+    end)
+  end)
+  
   bridge.register_callback("on_result", function(result)
-    if result.is_error then
-      vim.notify("Claude error: " .. (result.error or "Unknown error"), vim.log.levels.ERROR)
-    else
-      vim.notify("Claude completed in " .. (result.duration_ms or 0) .. "ms", vim.log.levels.INFO)
-    end
+    vim.schedule(function()
+      ui.finish_streaming()
+      if result.is_error then
+        vim.notify("Claude error: " .. (result.error or "Unknown error"), vim.log.levels.ERROR)
+      end
+    end)
   end)
   
   -- Send to Claude

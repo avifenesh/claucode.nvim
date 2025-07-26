@@ -10,47 +10,39 @@ local function escape_prompt(prompt)
   return prompt:gsub('"', '\\"'):gsub('\n', '\\n')
 end
 
-local function parse_claude_output(data, is_json)
-  if is_json then
-    -- Try to parse JSON response
-    local ok, result = pcall(vim.json.decode, data)
-    if ok and result.type == "result" then
-      if callbacks.on_result then
-        callbacks.on_result(result)
+local function parse_streaming_json(line)
+  if line == "" then return end
+  
+  -- Try to parse each line as JSON
+  local ok, result = pcall(vim.json.decode, line)
+  if not ok then return end
+  
+  -- Handle different event types
+  if result.type == "message" and result.subtype == "start" then
+    if callbacks.on_start then
+      callbacks.on_start()
+    end
+  elseif result.type == "content" and result.subtype == "text" then
+    -- Real-time content streaming
+    if result.text and callbacks.on_stream then
+      callbacks.on_stream(result.text)
+    end
+  elseif result.type == "tool_use" then
+    -- Tool usage notification
+    if callbacks.on_tool_use then
+      callbacks.on_tool_use(result)
+    end
+    -- Check for file modifications
+    if result.name == "Edit" or result.name == "Write" then
+      local input = result.input
+      if input and input.file_path and callbacks.on_file_change then
+        callbacks.on_file_change(input.file_path)
       end
-      -- Extract the actual response text
-      if result.result and callbacks.on_output then
-        callbacks.on_output(result.result)
-      end
     end
-  else
-    -- Plain text output
-    output_buffer = output_buffer .. data
-    
-    -- Look for file modifications in the output
-    local modifications = {}
-    
-    -- Pattern to match file paths that Claude might be working on
-    local file_pattern = "File: ([^\n]+)"
-    for file in output_buffer:gmatch(file_pattern) do
-      table.insert(modifications, file)
-    end
-    
-    -- Also look for "Writing to" patterns
-    local write_pattern = "Writing to ([^\n]+)"
-    for file in output_buffer:gmatch(write_pattern) do
-      table.insert(modifications, file)
-    end
-    
-    -- Trigger callbacks for any registered listeners
-    if callbacks.on_output then
-      callbacks.on_output(data)
-    end
-    
-    if #modifications > 0 and callbacks.on_file_change then
-      for _, file in ipairs(modifications) do
-        callbacks.on_file_change(file)
-      end
+  elseif result.type == "result" then
+    -- Final result
+    if callbacks.on_result then
+      callbacks.on_result(result)
     end
   end
 end
@@ -62,10 +54,10 @@ function M.send_to_claude(prompt, opts)
   -- Build command arguments
   local args = {}
   
-  -- Use print mode with JSON output for better parsing
+  -- Use print mode with streaming JSON output for real-time feedback
   table.insert(args, "-p")
   table.insert(args, "--output-format")
-  table.insert(args, "json")
+  table.insert(args, "stream-json")
   
   -- For simple prompts, add as argument
   if prompt and prompt ~= "" and not use_stdin then
@@ -106,9 +98,10 @@ function M.send_to_claude(prompt, opts)
         if stderr_buffer ~= "" then
           vim.notify("Error details: " .. stderr_buffer, vim.log.levels.ERROR)
         end
-      else
-        -- Parse the complete JSON output
-        parse_claude_output(json_buffer, true)
+      end
+      -- Process any remaining data in buffer
+      if json_buffer ~= "" then
+        parse_streaming_json(json_buffer)
       end
       current_process = nil
       
@@ -123,7 +116,7 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
-  -- Read stdout
+  -- Read stdout line by line for streaming
   stdout:read_start(function(err, data)
     if err then
       vim.schedule(function()
@@ -134,7 +127,25 @@ function M.send_to_claude(prompt, opts)
     
     if data then
       json_buffer = json_buffer .. data
-      -- Try to parse complete JSON when process ends
+      -- Process complete lines
+      local lines = vim.split(json_buffer, "\n", { plain = true })
+      
+      -- Keep incomplete line in buffer
+      if not json_buffer:match("\n$") and #lines > 1 then
+        json_buffer = lines[#lines]
+        table.remove(lines, #lines)
+      else
+        json_buffer = ""
+      end
+      
+      -- Process each complete line
+      for _, line in ipairs(lines) do
+        if line ~= "" then
+          vim.schedule(function()
+            parse_streaming_json(line)
+          end)
+        end
+      end
     end
   end)
   
