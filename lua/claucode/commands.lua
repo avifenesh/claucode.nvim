@@ -64,7 +64,10 @@ function M.claude(args)
     prompt = prompt .. "\n\nCurrent file (" .. current_file .. "):\n```" .. file_type .. "\n" .. file_content .. "\n```"
   end
   
-  vim.notify("Sending prompt to Claude Code...", vim.log.levels.INFO)
+  -- Only show this for non-empty prompts
+  if prompt and prompt ~= "" then
+    vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.INFO)
+  end
   
   -- Register output callback to show Claude's response
   bridge.register_callback("on_output", function(data)

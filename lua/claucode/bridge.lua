@@ -83,8 +83,16 @@ function M.send_to_claude(prompt, opts)
   -- For complex prompts, we'll use stdin
   local use_stdin = #prompt > 1000 or prompt:match("\n")
   
-  -- Spawn the Claude process
-  vim.notify("Running: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
+  -- Check if command exists first
+  if vim.fn.executable(config.command) == 0 then
+    vim.notify("Claude Code CLI not found: '" .. config.command .. "'", vim.log.levels.ERROR)
+    vim.notify("Please install it with: npm install -g @anthropic-ai/claude-code", vim.log.levels.ERROR)
+    return false
+  end
+  
+  -- Buffer for collecting JSON output and stderr
+  local json_buffer = ""
+  local stderr_buffer = ""
   
   current_process = uv.spawn(config.command, {
     args = args,
@@ -115,9 +123,6 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
-  -- Buffer for collecting JSON output
-  local json_buffer = ""
-  
   -- Read stdout
   stdout:read_start(function(err, data)
     if err then
@@ -132,9 +137,6 @@ function M.send_to_claude(prompt, opts)
       -- Try to parse complete JSON when process ends
     end
   end)
-  
-  -- Collect stderr for better error reporting
-  local stderr_buffer = ""
   
   -- Read stderr
   stderr:read_start(function(err, data)
