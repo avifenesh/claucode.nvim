@@ -133,6 +133,25 @@ function M.setup(user_config)
   end, {
     desc = "Review pending changes from Claude",
   })
+  
+  vim.api.nvim_create_user_command("ClaudeTerminal", function()
+    require("claucode.terminal").open_claude_terminal()
+  end, {
+    desc = "Open Claude in a terminal split",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeTerminalToggle", function()
+    require("claucode.terminal").toggle_claude_terminal()
+  end, {
+    desc = "Toggle Claude terminal",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeTerminalSend", function(opts)
+    require("claucode.terminal").send_to_terminal(opts.args)
+  end, {
+    nargs = "+",
+    desc = "Send text to Claude terminal",
+  })
 end
 
 function M.get_config()

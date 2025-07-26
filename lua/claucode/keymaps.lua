@@ -47,6 +47,15 @@ function M.setup(config)
     desc = "Claude complete at cursor",
   })
   
+  -- Terminal mappings
+  map("n", prefix .. "o", "<cmd>ClaudeTerminal<CR>", {
+    desc = "Open Claude terminal",
+  })
+  
+  map("n", prefix .. "T", "<cmd>ClaudeTerminalToggle<CR>", {
+    desc = "Toggle Claude terminal",
+  })
+  
   -- Visual mode mappings
   map("v", prefix .. "c", ":<C-u>lua require('claucode.commands').store_visual_selection()<CR>:Claude ", {
     desc = "Claude prompt with selection",
@@ -63,6 +72,10 @@ function M.setup(config)
   
   map("v", prefix .. "t", ":<C-u>lua require('claucode.commands').claude_test()<CR>", {
     desc = "Claude test selection",
+  })
+  
+  map("v", prefix .. "T", ":<C-u>lua require('claucode.terminal').send_current_selection_to_terminal()<CR>", {
+    desc = "Send selection to Claude terminal",
   })
   
   -- Which-key integration (if available)

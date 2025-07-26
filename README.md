@@ -15,6 +15,8 @@ This is a lightweight bridge that connects Neovim with Claude Code CLI. It's a p
 - 🔍 Visual selection support for targeted assistance
 - 📝 File context inclusion with prompts
 - 🔄 Real-time file watching for Claude's modifications
+- 🖥️ Terminal integration - Run Claude in a split terminal
+- 💬 Beautiful popup windows for Claude responses
 
 ## Getting Started
 
@@ -99,22 +101,32 @@ require("claucode").setup({
 
 ### Commands
 
-- `:Claude <prompt>` - Send a prompt to Claude
+- `:Claude <prompt>` - Send a prompt to Claude (shows response in popup)
 - `:Claude --file <prompt>` - Include current file context with prompt
 - `:ClaudeStop` - Stop Claude Code bridge and file watcher
 - `:ClaudeStart` - Start file watcher
 - `:ClaudeReview` - Review pending changes from Claude
+- `:ClaudeTerminal` - Open Claude in a terminal split at the bottom
+- `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
+- `:ClaudeTerminalSend <text>` - Send text to Claude terminal
 
 ### Default Keymaps
 
 With default prefix `<leader>ai`:
 
+**Normal mode:**
 - `<leader>aic` - Send prompt to Claude
 - `<leader>aif` - Send current file to Claude for review
 - `<leader>aie` - Explain code (selection or file)
 - `<leader>aix` - Fix issues in code
 - `<leader>ait` - Generate tests
 - `<leader>air` - Review pending changes
+- `<leader>aio` - Open Claude terminal
+- `<leader>aiT` - Toggle Claude terminal
+
+**Visual mode:**
+- Select text then `<leader>aic` - Send selection with prompt
+- Select text then `<leader>aiT` - Send selection to terminal
 
 ### Examples
 
