@@ -22,7 +22,19 @@ M.config = {
     -- Debounce time in milliseconds
     debounce = 100,
     -- Ignore patterns
-    ignore_patterns = { "%.git/", "node_modules/", "%.swp$", "%.swo$" },
+    ignore_patterns = {
+      "%.git/", "node_modules/", "%.swp$", "%.swo$",
+      -- Binary files
+      "%.class$", "%.jar$", "%.war$", "%.ear$",  -- Java
+      "%.pyc$", "%.pyo$", "%.pyd$",              -- Python
+      "%.exe$", "%.dll$", "%.so$", "%.dylib$",   -- Executables/Libraries
+      "%.o$", "%.a$", "%.lib$",                  -- Object files
+      "%.pdf$", "%.jpg$", "%.jpeg$", "%.png$",   -- Media files
+      "%.gif$", "%.bmp$", "%.ico$", "%.webp$",
+      "%.mp3$", "%.mp4$", "%.avi$", "%.mov$",
+      "%.zip$", "%.tar$", "%.gz$", "%.rar$",     -- Archives
+      "%.db$", "%.sqlite$", "%.sqlite3$",        -- Databases
+    },
   },
   -- Bridge settings
   bridge = {

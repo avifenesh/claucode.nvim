@@ -20,8 +20,35 @@ local function get_file_mtime(path)
   return stat and stat.mtime.sec or nil
 end
 
+local function is_binary_file(filepath)
+  -- Check file extension for known binary types
+  local binary_extensions = {
+    "%.class$", "%.jar$", "%.war$", "%.ear$",
+    "%.pyc$", "%.pyo$", "%.pyd$",
+    "%.exe$", "%.dll$", "%.so$", "%.dylib$",
+    "%.o$", "%.a$", "%.lib$",
+    "%.pdf$", "%.jpg$", "%.jpeg$", "%.png$", "%.gif$", "%.bmp$", "%.ico$", "%.webp$",
+    "%.mp3$", "%.mp4$", "%.avi$", "%.mov$",
+    "%.zip$", "%.tar$", "%.gz$", "%.rar$", "%.7z$",
+    "%.db$", "%.sqlite$", "%.sqlite3$",
+  }
+  
+  for _, pattern in ipairs(binary_extensions) do
+    if filepath:match(pattern) then
+      return true
+    end
+  end
+  
+  return false
+end
+
 local function reload_buffer_if_changed(filepath)
   vim.schedule(function()
+    -- Skip binary files
+    if is_binary_file(filepath) then
+      return
+    end
+    
     -- Find all buffers with this file
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
