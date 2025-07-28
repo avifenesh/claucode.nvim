@@ -4,7 +4,7 @@ local terminal_buf = nil
 local terminal_win = nil
 local terminal_job_id = nil
 
-function M.open_claude_terminal()
+function M.open_claude_terminal(cli_args)
   local config = require("claucode").get_config()
   
   -- Check if terminal already exists and is valid
@@ -33,8 +33,14 @@ function M.open_claude_terminal()
     vim.api.nvim_set_current_buf(terminal_buf)
     terminal_win = vim.api.nvim_get_current_win()
     
+    -- Build command with optional CLI arguments
+    local command = config.command
+    if cli_args and cli_args ~= "" then
+      command = command .. " " .. cli_args
+    end
+    
     -- Start Claude in the terminal
-    terminal_job_id = vim.fn.termopen(config.command, {
+    terminal_job_id = vim.fn.termopen(command, {
       cwd = vim.fn.getcwd(),
       on_exit = function(job_id, exit_code, event_type)
         -- Clean up when terminal closes

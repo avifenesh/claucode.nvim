@@ -146,10 +146,11 @@ function M.setup(user_config)
     desc = "Review pending changes from Claude",
   })
   
-  vim.api.nvim_create_user_command("ClaudeTerminal", function()
-    require("claucode.terminal").open_claude_terminal()
+  vim.api.nvim_create_user_command("ClaudeTerminal", function(opts)
+    require("claucode.terminal").open_claude_terminal(opts.args)
   end, {
-    desc = "Open Claude in a terminal split",
+    nargs = "*",
+    desc = "Open Claude in a terminal split with optional CLI parameters",
   })
   
   vim.api.nvim_create_user_command("ClaudeTerminalToggle", function()

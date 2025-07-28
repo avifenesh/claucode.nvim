@@ -106,7 +106,7 @@ require("claucode").setup({
 - `:ClaudeStop` - Stop Claude Code bridge and file watcher
 - `:ClaudeStart` - Start file watcher
 - `:ClaudeReview` - Review pending changes from Claude
-- `:ClaudeTerminal` - Open Claude in a terminal split at the bottom
+- `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
 - `:ClaudeTerminalSend <text>` - Send text to Claude terminal
 
@@ -143,6 +143,11 @@ With default prefix `<leader>ai`:
 
 " Fix issues in current file
 :Claude --file Fix any bugs or issues in this file
+
+" Open Claude terminal with CLI parameters
+:ClaudeTerminal --continue
+:ClaudeTerminal --mcp-config ../.mcp.json
+:ClaudeTerminal --continue --mcp-config ../.mcp.json
 ```
 
 ## What This Is (and Isn't)
