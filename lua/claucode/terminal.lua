@@ -19,7 +19,8 @@ function M.open_claude_terminal(cli_args)
   
   -- Create a horizontal split at the bottom
   vim.cmd('botright split')
-  local height = math.floor(vim.o.lines * config.ui.terminal.height)
+  local height_ratio = (config.ui and config.ui.terminal and config.ui.terminal.height) or 0.5
+  local height = math.floor(vim.o.lines * height_ratio)
   vim.cmd('resize ' .. height)
   
   -- Create or reuse terminal buffer
