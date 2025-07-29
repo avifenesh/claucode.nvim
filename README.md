@@ -93,6 +93,9 @@ require("claucode").setup({
       height = 0.8,
       border = "rounded",
     },
+    terminal = {
+      height = 0.5, -- Terminal height as fraction of screen (0.5 = 50%)
+    },
   },
 })
 ```

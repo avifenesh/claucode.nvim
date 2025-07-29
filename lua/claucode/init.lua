@@ -51,6 +51,10 @@ M.config = {
       height = 0.8,
       border = "rounded",
     },
+    -- Terminal settings
+    terminal = {
+      height = 0.5, -- 50% of screen height (increased from 30%)
+    },
   },
 }
 

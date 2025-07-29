@@ -17,9 +17,9 @@ function M.open_claude_terminal(cli_args)
   -- Save current window
   local current_win = vim.api.nvim_get_current_win()
   
-  -- Create a horizontal split at the bottom (30% height)
+  -- Create a horizontal split at the bottom
   vim.cmd('botright split')
-  local height = math.floor(vim.o.lines * 0.3)
+  local height = math.floor(vim.o.lines * config.ui.terminal.height)
   vim.cmd('resize ' .. height)
   
   -- Create or reuse terminal buffer
