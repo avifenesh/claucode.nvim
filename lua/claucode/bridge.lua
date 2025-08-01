@@ -22,6 +22,13 @@ local function parse_streaming_json(line)
   local ok, result = pcall(vim.json.decode, line)
   if not ok then return end
   
+  -- Debug logging
+  vim.schedule(function()
+    if result.type then
+      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
+    end
+  end)
+  
   -- Handle different event types
   if result.type == "system" and result.subtype == "init" then
     if callbacks.on_start then
@@ -65,6 +72,9 @@ local function parse_streaming_json(line)
     end
   elseif result.type == "permission_request" then
     -- Handle permission requests for file changes
+    vim.schedule(function()
+      vim.notify("Permission request for tool: " .. (result.tool_name or "unknown"), vim.log.levels.INFO)
+    end)
     local config = require("claucode").get_config()
     if config.bridge.show_diff and result.tool_name and (result.tool_name == "Edit" or result.tool_name == "Write") then
       -- Extract file path and content from the request
@@ -151,10 +161,14 @@ function M.send_to_claude(prompt, opts)
   if config.bridge.show_diff then
     -- Use ask mode to intercept file changes
     table.insert(args, "ask")
+    vim.notify("Diff preview enabled - using permission mode: ask", vim.log.levels.INFO)
   else
     -- Accept edits automatically in non-interactive mode
     table.insert(args, "acceptEdits")
   end
+  
+  -- For complex prompts, we'll use stdin
+  local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- For simple prompts, add as argument
   if prompt and prompt ~= "" and not use_stdin then
@@ -168,9 +182,6 @@ function M.send_to_claude(prompt, opts)
   local stdout = uv.new_pipe(false)
   local stderr = uv.new_pipe(false)
   local stdin = uv.new_pipe(false)
-  
-  -- For complex prompts, we'll use stdin
-  local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- Check if command exists first
   if vim.fn.executable(config.command) == 0 and vim.fn.filereadable(config.command) == 0 then

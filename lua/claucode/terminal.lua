@@ -36,6 +36,13 @@ function M.open_claude_terminal(cli_args)
     
     -- Build command with optional CLI arguments
     local command = config.command
+    
+    -- Add permission mode if diff preview is enabled
+    if config.bridge and config.bridge.show_diff then
+      command = command .. " --permission-mode ask"
+      vim.notify("Claude Terminal: Diff preview enabled", vim.log.levels.INFO)
+    end
+    
     if cli_args and cli_args ~= "" then
       command = command .. " " .. cli_args
     end

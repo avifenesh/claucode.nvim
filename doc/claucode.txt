@@ -113,6 +113,16 @@ COMMANDS                                                    *claucode-commands*
 :ClaudeStart                                                     *:ClaudeStart*
     Start Claude Code file watcher.
 
+:ClaudeTerminal [{args}]                                     *:ClaudeTerminal*
+    Open Claude in a terminal split. Optional CLI arguments can be passed.
+    When show_diff = true in config, diff preview will be enabled automatically.
+
+:ClaudeTerminalToggle                                  *:ClaudeTerminalToggle*
+    Toggle the Claude terminal window open/closed.
+
+:ClaudeTerminalSend {text}                              *:ClaudeTerminalSend*
+    Send text to the Claude terminal.
+
 ==============================================================================
 KEYMAPS                                                      *claucode-keymaps*
 
