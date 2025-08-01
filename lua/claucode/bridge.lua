@@ -205,17 +205,9 @@ function M.send_to_claude(prompt, opts)
           vim.notify("Error details: " .. stderr_buffer, vim.log.levels.ERROR)
         end
       end
-      -- Process any remaining data in buffer
-      if json_buffer ~= "" then
-        parse_streaming_json(json_buffer)
-      end
-      
-      -- If we have output but no result callback was triggered, show it as fallback
-      if output_buffer ~= "" and not callbacks._result_triggered then
-        -- Show the output as-is
-        if callbacks.on_result then
-          callbacks.on_result({ content = output_buffer })
-        end
+      -- Always trigger on_result with the accumulated output
+      if callbacks.on_result then
+        callbacks.on_result({ content = output_buffer })
       end
       
       current_process = nil
@@ -232,13 +224,7 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
-  -- Trigger on_start immediately since we're not using JSON mode
-  if callbacks.on_start then
-    callbacks._start_triggered = true
-    vim.schedule(function()
-      callbacks.on_start()
-    end)
-  end
+  -- Don't trigger on_start immediately - wait for actual output
   
   -- Read stdout line by line for streaming
   stdout:read_start(function(err, data)
@@ -250,28 +236,22 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
-      -- Also accumulate raw output as fallback
-      output_buffer = output_buffer .. data
-      
-      json_buffer = json_buffer .. data
-      -- Process complete lines
-      local lines = vim.split(json_buffer, "\n", { plain = true })
-      
-      -- Keep incomplete line in buffer
-      if not json_buffer:match("\n$") and #lines > 1 then
-        json_buffer = lines[#lines]
-        table.remove(lines, #lines)
-      else
-        json_buffer = ""
+      -- Trigger on_start on first data
+      if not callbacks._start_triggered and callbacks.on_start then
+        callbacks._start_triggered = true
+        vim.schedule(function()
+          callbacks.on_start()
+        end)
       end
       
-      -- Process each complete line
-      for _, line in ipairs(lines) do
-        if line ~= "" then
-          vim.schedule(function()
-            parse_streaming_json(line)
-          end)
-        end
+      -- In -p mode, Claude outputs plain text, not JSON
+      -- So just stream the text directly
+      output_buffer = output_buffer .. data
+      
+      if callbacks.on_stream then
+        vim.schedule(function()
+          callbacks.on_stream(data)
+        end)
       end
     end
   end)
