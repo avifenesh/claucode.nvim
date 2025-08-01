@@ -142,17 +142,21 @@ require("claucode").setup({
 
 ### CLAUDE.md Integration
 
-When diff preview is enabled, the plugin can automatically add instructions to your project's `CLAUDE.md` file. This ensures Claude will use the Neovim diff preview tools in both command mode and terminal mode:
+When diff preview is enabled, the plugin automatically adds instructions to your project's `CLAUDE.md` file. This ensures Claude will use the Neovim diff preview tools in both command mode and terminal mode.
 
-1. **Automatic prompt**: When you first enable diff preview, the plugin will ask if you want to add instructions to CLAUDE.md
-2. **Manual management**: Use `:ClaudeDiffInstructions` to toggle the diff preview instructions in CLAUDE.md
-3. **Persistent instructions**: Once added to CLAUDE.md, Claude will always prefer the Neovim diff preview tools for file operations
+**Automatic behavior:**
+- When you enable `show_diff = true`, the plugin automatically adds diff preview instructions to CLAUDE.md
+- This happens silently in the background when you open Neovim in a project
+- To disable automatic CLAUDE.md updates, set `bridge.auto_claude_md = false`
 
-This approach works better than the `--diff` flag because:
-- It works in terminal mode (`:ClaudeTerminal`) automatically
-- You don't need to remember to add flags
-- It's project-specific and can be committed to version control
-- Other team members will get the same behavior
+**Manual control:**
+- Use `:ClaudeDiffInstructions` to manually toggle the diff preview instructions in CLAUDE.md
+
+**Benefits:**
+- Works in both `:Claude` commands and `:ClaudeTerminal` automatically
+- No need to remember flags or special commands
+- Project-specific configuration that can be committed to version control
+- Team members get the same behavior automatically
 
 ### Commands
 

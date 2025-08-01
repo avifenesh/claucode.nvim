@@ -138,23 +138,15 @@ end
 function M.setup()
   local config = require("claucode").get_config()
   
-  -- Only manage CLAUDE.md if MCP is enabled and show_diff is true
-  if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
-    -- Check if we should add instructions
+  -- Only manage CLAUDE.md if MCP is enabled and show_diff is true and auto_claude_md is enabled
+  if config.mcp and config.mcp.enabled and 
+     config.bridge and config.bridge.show_diff and 
+     config.bridge.auto_claude_md ~= false then  -- Default to true if not specified
+    -- Automatically add instructions if they don't exist
     if not M.has_diff_instructions() then
-      -- Ask user if they want to add instructions to CLAUDE.md
+      -- Delay execution to ensure Neovim is fully loaded
       vim.defer_fn(function()
-        vim.ui.select(
-          {"Yes", "No"},
-          {
-            prompt = "Add Neovim diff preview instructions to CLAUDE.md? This will help Claude use diff preview tools automatically."
-          },
-          function(choice)
-            if choice == "Yes" then
-              M.add_diff_instructions()
-            end
-          end
-        )
+        M.add_diff_instructions()
       end, 100)
     end
   end

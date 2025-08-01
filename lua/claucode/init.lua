@@ -44,6 +44,8 @@ M.config = {
     max_output = 1048576, -- 1MB
     -- Show diff before applying changes (requires MCP)
     show_diff = false,
+    -- Automatically add diff instructions to CLAUDE.md
+    auto_claude_md = true,
   },
   -- MCP settings
   mcp = {
