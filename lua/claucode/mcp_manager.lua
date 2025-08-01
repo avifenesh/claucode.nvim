@@ -1,11 +1,20 @@
 local M = {}
 
+-- Get the claude command path
+local function get_claude_command()
+  local config = require("claucode").get_config()
+  return config.command or "claude"
+end
+
 -- Check if our MCP server is already added to Claude
 local function is_mcp_server_added()
   -- Check if claude has our server configured
   -- We'll check by running `claude mcp list` and parsing output
-  local output = vim.fn.system("claude mcp list 2>&1")
+  local claude_cmd = get_claude_command()
+  local cmd = claude_cmd .. " mcp list 2>&1"
+  local output = vim.fn.system(cmd)
   if vim.v.shell_error ~= 0 then
+    -- If command fails, assume not added
     return false
   end
   
@@ -71,16 +80,26 @@ function M.add_mcp_server()
   end
   
   -- Add the MCP server using claude mcp add command
+  local claude_cmd = get_claude_command()
   local cmd = string.format(
-    'claude mcp add --scope user claucode-nvim node "%s"',
+    '%s mcp add --scope user claucode-nvim node "%s"',
+    claude_cmd,
     mcp_server
   )
   
   vim.notify("Adding Claucode MCP server to Claude configuration...", vim.log.levels.INFO)
+  vim.notify("Using claude command: " .. claude_cmd, vim.log.levels.DEBUG)
   
   local output = vim.fn.system(cmd)
   if vim.v.shell_error ~= 0 then
     vim.notify("Failed to add MCP server: " .. output, vim.log.levels.ERROR)
+    
+    -- Check if it's because claude doesn't support mcp subcommand
+    if output:match("Unknown command") or output:match("command not found") then
+      vim.notify("Your Claude CLI version doesn't support 'mcp' command.", vim.log.levels.ERROR)
+      vim.notify("Please update Claude Code CLI to the latest version.", vim.log.levels.ERROR)
+    end
+    
     return false
   end
   
@@ -91,7 +110,8 @@ end
 
 -- Remove our MCP server from Claude configuration
 function M.remove_mcp_server()
-  local cmd = "claude mcp remove claucode-nvim"
+  local claude_cmd = get_claude_command()
+  local cmd = claude_cmd .. " mcp remove claucode-nvim"
   local output = vim.fn.system(cmd)
   if vim.v.shell_error ~= 0 then
     vim.notify("Failed to remove MCP server: " .. output, vim.log.levels.ERROR)
