@@ -240,6 +240,7 @@ function M.show_diff_window(hash, filepath, original, modified)
   
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, diff_lines)
   vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "swapfile", false)
   
   -- Calculate window size
   local width = math.floor(vim.o.columns * 0.8)
@@ -258,12 +259,7 @@ function M.show_diff_window(hash, filepath, original, modified)
     border = "rounded",
     title = " Claucode Diff: " .. vim.fn.fnamemodify(filepath, ":t") .. " ",
     title_pos = "center",
-    focusable = true,
   })
-  
-  -- Ensure the window has focus
-  vim.api.nvim_set_current_win(win)
-  vim.cmd("stopinsert")
   
   -- Response function
   local function respond(approved)
@@ -282,7 +278,12 @@ function M.show_diff_window(hash, filepath, original, modified)
     vim.fn.writefile({response_data}, response_file)
     
     -- Clean up
-    vim.api.nvim_win_close(win, true)
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
     pending_diffs[hash] = nil
     
     -- Log the response

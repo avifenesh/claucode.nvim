@@ -20,6 +20,10 @@ local function parse_streaming_json(line)
   if not ok then 
     -- Log parse errors for debugging
     vim.schedule(function()
+      -- Check if it's just empty or whitespace
+      if line:match("^%s*$") then
+        return
+      end
       vim.notify("Failed to parse Claude output: " .. line:sub(1, 100), vim.log.levels.DEBUG)
     end)
     return 
@@ -52,6 +56,11 @@ local function parse_streaming_json(line)
     -- Handle simple text output
     if result.text and callbacks.on_stream then
       callbacks.on_stream(result.text)
+    end
+  elseif result.type == "content" then
+    -- Handle content events
+    if result.content and callbacks.on_stream then
+      callbacks.on_stream(result.content)
     end
   elseif result.type == "assistant" then
     -- Assistant message with content
@@ -301,11 +310,7 @@ function M.send_to_claude(prompt, opts)
         end)
       end
       -- Keep stdin open for potential permission responses
-      -- stdin:close()
     end)
-  else
-    -- Keep stdin open for potential permission responses
-    -- stdin:close()
   end
   
   return true
