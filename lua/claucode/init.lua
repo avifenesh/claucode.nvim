@@ -45,6 +45,13 @@ M.config = {
     -- Show diff before applying changes (optional, default false)
     show_diff = true,
   },
+  -- MCP settings
+  mcp = {
+    -- Enable MCP server for diff preview
+    enabled = true,
+    -- Auto-build MCP server if not found
+    auto_build = true,
+  },
   -- UI settings
   ui = {
     -- Diff preview window settings
@@ -117,6 +124,11 @@ function M.setup(user_config)
   
   if M.config.auto_start_watcher then
     require("claucode.watcher").start(M.config)
+  end
+  
+  -- Setup MCP integration if enabled
+  if M.config.mcp.enabled then
+    require("claucode.mcp").setup(M.config)
   end
   
   -- Create user commands

@@ -37,11 +37,18 @@ function M.open_claude_terminal(cli_args)
     -- Build command with optional CLI arguments
     local command = config.command
     
-    -- Check if user provided their own permission mode
+    -- Check if user provided their own permission mode or MCP config
     local has_permission_mode = cli_args and cli_args:match("%-%-permission%-mode")
+    local has_mcp_config = cli_args and cli_args:match("%-%-mcp%-config")
     
-    -- Add permission mode if diff preview is enabled and user hasn't specified one
-    if config.bridge and config.bridge.show_diff and not has_permission_mode then
+    -- Add MCP config if available and not already specified
+    local mcp = require("claucode.mcp")
+    local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
+    if mcp_config_file and config.mcp and config.mcp.enabled and not has_mcp_config then
+      command = command .. " --mcp-config " .. mcp_config_file
+      vim.notify("Claude Terminal: Using MCP server for diff preview", vim.log.levels.INFO)
+    elseif config.bridge and config.bridge.show_diff and not has_permission_mode then
+      -- Add permission mode if diff preview is enabled and user hasn't specified one
       command = command .. " --permission-mode default"
       vim.notify("Claude Terminal: Diff preview enabled", vim.log.levels.INFO)
     end

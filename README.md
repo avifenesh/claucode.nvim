@@ -17,6 +17,7 @@ This is a lightweight bridge that connects Neovim with Claude Code CLI. It's a p
 - 🔄 Real-time file watching for Claude's modifications
 - 🖥️ Terminal integration - Run Claude in a split terminal
 - 💬 Beautiful popup windows for Claude responses
+- 🔍 **NEW**: MCP-powered diff preview - See changes before they're applied!
 
 ## Getting Started
 
@@ -103,26 +104,42 @@ require("claucode").setup({
 
 ## Usage
 
-### Diff Preview Feature (Optional)
+### MCP-Powered Diff Preview (NEW!)
 
-This plugin includes an optional diff preview feature that shows you what changes Claude wants to make before applying them.
+This plugin now includes an advanced MCP (Model Context Protocol) server that provides seamless diff preview functionality. When enabled, you'll see exactly what changes Claude wants to make before they're applied to your files.
 
-**Enable it in your config:**
+**Enable MCP diff preview:**
 ```lua
 require("claucode").setup({
-  bridge = {
-    show_diff = true,  -- Enable diff preview (default: false)
+  mcp = {
+    enabled = true,     -- Enable MCP server (default: true)
+    auto_build = true,  -- Auto-build MCP server if not found (default: true)
   }
 })
 ```
 
 **How it works:**
-- When Claude wants to modify a file, a floating window appears with a diff preview
-- Press `a` to accept the changes
-- Press `r` to reject the changes  
-- Press `q` or `<Esc>` to close (same as reject)
+1. The plugin automatically configures Claude Code CLI to use our MCP server
+2. When Claude wants to edit or write a file, a beautiful diff preview appears in Neovim
+3. Review the changes and decide:
+   - Press `a` to accept the changes
+   - Press `r` to reject the changes  
+   - Press `q` or `<Esc>` to close (same as reject)
 
-This feature is disabled by default to maintain the original automatic behavior.
+**First-time setup:**
+The MCP server will be automatically built when you first enable it. This requires Node.js and npm to be installed.
+
+**Fallback mode:**
+If MCP is not available, the plugin falls back to the legacy diff preview mode:
+```lua
+require("claucode").setup({
+  bridge = {
+    show_diff = true,  -- Legacy diff preview (when MCP is disabled)
+  }
+})
+```
+
+The MCP approach is recommended as it provides better integration and more reliable diff previews.
 
 ### Commands
 

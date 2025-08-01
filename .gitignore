@@ -31,6 +31,11 @@ tags
 node_modules/
 package-lock.json
 
+# MCP server
+/mcp-server/node_modules/
+/mcp-server/build/
+/mcp-server/package-lock.json
+
 # IDE
 .vscode/
 .idea/

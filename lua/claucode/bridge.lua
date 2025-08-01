@@ -160,15 +160,27 @@ function M.send_to_claude(prompt, opts)
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
-  -- Set permission mode based on show_diff setting
-  table.insert(args, "--permission-mode")
-  if config.bridge.show_diff then
-    -- Use default mode to intercept file changes
-    table.insert(args, "default")
-    vim.notify("Diff preview enabled - using permission mode: default", vim.log.levels.INFO)
-  else
-    -- Accept edits automatically in non-interactive mode
+  -- Add MCP config if available
+  local mcp = require("claucode.mcp")
+  local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
+  if mcp_config_file and config.mcp and config.mcp.enabled then
+    table.insert(args, "--mcp-config")
+    table.insert(args, mcp_config_file)
+    vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
+    -- With MCP, we can use acceptEdits since MCP will handle the diff preview
+    table.insert(args, "--permission-mode")
     table.insert(args, "acceptEdits")
+  else
+    -- Set permission mode based on show_diff setting
+    table.insert(args, "--permission-mode")
+    if config.bridge.show_diff then
+      -- Use default mode to intercept file changes
+      table.insert(args, "default")
+      vim.notify("Diff preview enabled - using permission mode: default", vim.log.levels.INFO)
+    else
+      -- Accept edits automatically in non-interactive mode
+      table.insert(args, "acceptEdits")
+    end
   end
   
   -- For complex prompts, we'll use stdin
