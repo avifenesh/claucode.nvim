@@ -114,12 +114,17 @@ end
 
 function M.start_streaming()
   content_accumulator = ""
-  M.show_progress("🤔 Claude is thinking...")
+  if not progress_win or not vim.api.nvim_win_is_valid(progress_win) then
+    M.show_progress("🤔 Claude is thinking...")
+  end
 end
 
 function M.stream_content(text)
   content_accumulator = content_accumulator .. text
-  -- Don't show popup until we have the complete response
+  -- Update progress to show we're receiving data
+  local char_count = #content_accumulator
+  local message = string.format("💭 Claude is responding... (%d chars)", char_count)
+  M.show_progress(message)
 end
 
 function M.on_tool_use(tool_data)

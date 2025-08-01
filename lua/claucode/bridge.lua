@@ -234,23 +234,37 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
-      
-      -- Trigger on_start on first data
-      if not callbacks._start_triggered and callbacks.on_start then
-        callbacks._start_triggered = true
-        vim.schedule(function()
-          callbacks.on_start()
-        end)
-      end
-      
-      -- In -p mode, Claude outputs plain text, not JSON
-      -- So just stream the text directly
+      -- Accumulate output
       output_buffer = output_buffer .. data
       
-      if callbacks.on_stream then
-        vim.schedule(function()
-          callbacks.on_stream(data)
-        end)
+      -- For plain text mode (-p flag), stream directly
+      -- But still check for potential JSON events mixed in
+      local lines = vim.split(data, "\n", { plain = true })
+      
+      for _, line in ipairs(lines) do
+        if line ~= "" then
+          -- Check if it looks like JSON
+          if line:match("^%s*{") then
+            -- Try to parse as JSON event
+            vim.schedule(function()
+              parse_streaming_json(line)
+            end)
+          else
+            -- Plain text - stream it
+            if not callbacks._start_triggered and callbacks.on_start then
+              callbacks._start_triggered = true
+              vim.schedule(function()
+                callbacks.on_start()
+              end)
+            end
+            
+            if callbacks.on_stream then
+              vim.schedule(function()
+                callbacks.on_stream(line .. "\n")
+              end)
+            end
+          end
+        end
       end
     end
   end)
