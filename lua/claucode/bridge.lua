@@ -17,16 +17,22 @@ local function parse_streaming_json(line)
   
   -- Try to parse each line as JSON
   local ok, result = pcall(vim.json.decode, line)
-  if not ok then return end
+  if not ok then 
+    -- Log parse errors for debugging
+    vim.schedule(function()
+      vim.notify("Failed to parse Claude output: " .. line:sub(1, 100), vim.log.levels.DEBUG)
+    end)
+    return 
+  end
   
   -- Debug logging
   vim.schedule(function()
     if result.type then
-      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.INFO)
+      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
     end
     -- Log permission requests specifically
     if result.type == "permission_request" then
-      vim.notify("Permission request details: " .. vim.inspect(result), vim.log.levels.INFO)
+      vim.notify("Permission request details: " .. vim.inspect(result), vim.log.levels.DEBUG)
     end
   end)
   
@@ -71,6 +77,7 @@ local function parse_streaming_json(line)
     end
   elseif result.type == "result" then
     -- Final result
+    callbacks._result_triggered = true
     if callbacks.on_result then
       callbacks.on_result(result)
     end
@@ -125,8 +132,9 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, prompt)
   end
   
-  -- Reset output buffer
+  -- Reset output buffer and callbacks state
   output_buffer = ""
+  callbacks._result_triggered = false
   
   -- Create pipes for process communication
   local stdout = uv.new_pipe(false)
@@ -164,6 +172,14 @@ function M.send_to_claude(prompt, opts)
       if json_buffer ~= "" then
         parse_streaming_json(json_buffer)
       end
+      
+      -- If we have output but no result callback was triggered, show it as fallback
+      if output_buffer ~= "" and not callbacks._result_triggered then
+        if callbacks.on_result then
+          callbacks.on_result({ content = output_buffer })
+        end
+      end
+      
       current_process = nil
       current_stdin = nil
       
@@ -178,6 +194,13 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
+  -- Trigger on_start callback immediately
+  if callbacks.on_start then
+    vim.schedule(function()
+      callbacks.on_start()
+    end)
+  end
+  
   -- Read stdout line by line for streaming
   stdout:read_start(function(err, data)
     if err then
@@ -188,6 +211,9 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
+      -- Also accumulate raw output as fallback
+      output_buffer = output_buffer .. data
+      
       json_buffer = json_buffer .. data
       -- Process complete lines
       local lines = vim.split(json_buffer, "\n", { plain = true })

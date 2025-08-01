@@ -4,10 +4,57 @@ local uv = vim.loop
 local mcp_process = nil
 local pending_diffs = {}
 
+-- Get the plugin root directory
+local function get_plugin_root()
+  local source_path = debug.getinfo(1, "S").source:match("@(.*)")
+  return vim.fn.fnamemodify(source_path, ":h:h:h")
+end
+
+-- Build the MCP server
+local function build_mcp_server()
+  local root = get_plugin_root()
+  local mcp_dir = root .. "/mcp-server"
+  
+  -- Check if source files exist
+  if vim.fn.isdirectory(mcp_dir) == 0 then
+    vim.notify("MCP server source not found", vim.log.levels.ERROR)
+    return false
+  end
+  
+  vim.notify("Building MCP server...", vim.log.levels.INFO)
+  
+  -- Check if npm is available
+  if vim.fn.executable("npm") == 0 then
+    vim.notify("npm not found. Please install Node.js and npm to use diff preview.", vim.log.levels.ERROR)
+    return false
+  end
+  
+  -- Run npm install
+  local install_cmd = string.format("cd %s && npm install", vim.fn.shellescape(mcp_dir))
+  local install_result = vim.fn.system(install_cmd)
+  if vim.v.shell_error ~= 0 then
+    vim.notify("Failed to install MCP dependencies: " .. install_result, vim.log.levels.ERROR)
+    return false
+  end
+  
+  -- Run npm build
+  local build_cmd = string.format("cd %s && npm run build", vim.fn.shellescape(mcp_dir))
+  local build_result = vim.fn.system(build_cmd)
+  if vim.v.shell_error ~= 0 then
+    vim.notify("Failed to build MCP server: " .. build_result, vim.log.levels.ERROR)
+    return false
+  end
+  
+  vim.notify("MCP server built successfully!", vim.log.levels.INFO)
+  return true
+end
+
 -- Get the MCP server path
 local function get_mcp_server_path()
-  -- First check if it's installed in the plugin directory
-  local plugin_path = vim.fn.expand(debug.getinfo(1, "S").source:match("@(.*/)").. "../../mcp-server/build/index.js")
+  local root = get_plugin_root()
+  
+  -- Check the correct build output location
+  local plugin_path = root .. "/mcp-server/dist/index.js"
   if vim.fn.filereadable(plugin_path) == 1 then
     return plugin_path
   end
@@ -198,23 +245,17 @@ end
 function M.setup(config)
   -- Check if MCP server is available
   local mcp_server = get_mcp_server_path()
-  if not mcp_server then
-    vim.notify("Claucode MCP server not found. Building it...", vim.log.levels.INFO)
-    
+  if not mcp_server and config.mcp and config.mcp.auto_build then
     -- Try to build the MCP server
-    local plugin_dir = vim.fn.expand(debug.getinfo(1, "S").source:match("@(.*/)").. "../../")
-    local build_cmd = string.format("cd %s/mcp-server && npm install && npm run build", plugin_dir)
-    
-    vim.fn.jobstart({"sh", "-c", build_cmd}, {
-      on_exit = function(_, code)
-        if code == 0 then
-          vim.notify("Claucode MCP server built successfully", vim.log.levels.INFO)
-          M.setup(config) -- Retry setup
-        else
-          vim.notify("Failed to build MCP server. Please run: cd " .. plugin_dir .. "/mcp-server && npm install && npm run build", vim.log.levels.ERROR)
-        end
-      end
-    })
+    if build_mcp_server() then
+      -- Check again after building
+      mcp_server = get_mcp_server_path()
+    end
+  end
+  
+  if not mcp_server then
+    local root = get_plugin_root()
+    vim.notify("MCP server not available. Please run: cd " .. root .. "/mcp-server && npm install && npm run build", vim.log.levels.WARN)
     return
   end
   
