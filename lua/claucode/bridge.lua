@@ -97,6 +97,13 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, "--mcp-config")
     table.insert(args, mcp_config_file)
     vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
+    
+    -- Check if CLAUDE.md has diff instructions
+    local claude_md = require("claucode.claude_md")
+    if not claude_md.has_diff_instructions() then
+      vim.notify("Tip: Run :ClaudeDiffInstructions to add diff preview instructions to CLAUDE.md", vim.log.levels.INFO)
+    end
+    
     -- With MCP, we can use acceptEdits since MCP will handle the diff preview
     table.insert(args, "--permission-mode")
     table.insert(args, "acceptEdits")
@@ -110,24 +117,12 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, "acceptEdits")
   end
   
-  -- Add system prompt if diff preview is enabled
-  local final_prompt = prompt
-  if config.mcp and config.mcp.enabled and config.bridge.show_diff and mcp_config_file then
-    local system_prompt = [[IMPORTANT: For ALL file editing operations in this session, you MUST use the Neovim diff preview tools:
-- Use `nvim_edit_with_diff` instead of `Edit` for editing files
-- Use `nvim_write_with_diff` instead of `Write` for writing files
-These tools will show changes in Neovim before applying them.
-
-]]
-    final_prompt = system_prompt .. prompt
-  end
-  
   -- For complex prompts, we'll use stdin
-  local use_stdin = #final_prompt > 1000 or final_prompt:match("\n")
+  local use_stdin = #prompt > 1000 or prompt:match("\n")
   
   -- For simple prompts, add as argument
-  if final_prompt and final_prompt ~= "" and not use_stdin then
-    table.insert(args, final_prompt)
+  if prompt and prompt ~= "" and not use_stdin then
+    table.insert(args, prompt)
   end
   
   -- Reset output buffer
@@ -240,8 +235,8 @@ These tools will show changes in Neovim before applying them.
   current_stdin = stdin
   
   -- Write prompt to stdin if needed
-  if use_stdin and final_prompt then
-    stdin:write(final_prompt, function(err)
+  if use_stdin and prompt then
+    stdin:write(prompt, function(err)
       if err then
         vim.schedule(function()
           vim.notify("Error writing to stdin: " .. err, vim.log.levels.ERROR)

@@ -137,6 +137,11 @@ function M.setup(user_config)
     require("claucode.mcp").setup(M.config)
   end
   
+  -- Setup CLAUDE.md management for diff preview
+  if M.config.mcp.enabled and M.config.bridge.show_diff then
+    require("claucode.claude_md").setup()
+  end
+  
   -- Create user commands
   vim.api.nvim_create_user_command("Claude", function(opts)
     -- Check if called from visual mode
@@ -188,6 +193,12 @@ function M.setup(user_config)
   end, {
     nargs = "+",
     desc = "Send text to Claude terminal",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeDiffInstructions", function()
+    require("claucode.claude_md").toggle_diff_instructions()
+  end, {
+    desc = "Toggle Neovim diff preview instructions in CLAUDE.md",
   })
 end
 

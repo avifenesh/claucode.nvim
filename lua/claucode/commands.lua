@@ -47,7 +47,7 @@ function M.claude(args, from_visual)
   local include_file = false
   local prompt = args
   
-  -- Check for special flags
+  -- Parse --file flag
   if args:match("^%-%-file%s+") then
     include_file = true
     prompt = args:gsub("^%-%-file%s+", "")
@@ -149,6 +149,7 @@ function M.claude_test()
     M.claude("--file Write tests for this file")
   end
 end
+
 
 function M.claude_complete()
   -- Complete code at cursor

@@ -110,7 +110,7 @@ require("claucode").setup({
 
 ## Usage
 
-### MCP-Powered Diff Preview (NEW!)
+### MCP-Powered Diff Preview
 
 This plugin includes an MCP (Model Context Protocol) server that provides seamless diff preview functionality. When enabled, you'll see exactly what changes Claude wants to make before they're applied to your files.
 
@@ -128,23 +128,31 @@ require("claucode").setup({
 ```
 
 **How it works:**
-1. The plugin adds our MCP server alongside your other MCP servers
-2. When diff preview is enabled, the plugin automatically instructs Claude to use our Neovim-specific tools
-3. Our MCP provides `nvim_edit_with_diff` and `nvim_write_with_diff` tools
-4. Claude will automatically use these tools for file operations when diff preview is enabled
-5. A beautiful diff preview appears in Neovim before changes are applied
-6. Review the changes and decide:
+1. The plugin provides an MCP server with Neovim-specific diff preview tools
+2. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
+3. A diff preview appears in Neovim before changes are applied
+4. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)
-
-**Note:** This approach preserves all your other MCP servers while adding diff preview functionality.
 
 **Requirements:**
 - Node.js and npm (for building the MCP server)
 - The MCP server will be automatically built on first use
 
-**Note:** Diff preview requires MCP to be enabled. If MCP is disabled or unavailable, diff preview will not work.
+### CLAUDE.md Integration
+
+When diff preview is enabled, the plugin can automatically add instructions to your project's `CLAUDE.md` file. This ensures Claude will use the Neovim diff preview tools in both command mode and terminal mode:
+
+1. **Automatic prompt**: When you first enable diff preview, the plugin will ask if you want to add instructions to CLAUDE.md
+2. **Manual management**: Use `:ClaudeDiffInstructions` to toggle the diff preview instructions in CLAUDE.md
+3. **Persistent instructions**: Once added to CLAUDE.md, Claude will always prefer the Neovim diff preview tools for file operations
+
+This approach works better than the `--diff` flag because:
+- It works in terminal mode (`:ClaudeTerminal`) automatically
+- You don't need to remember to add flags
+- It's project-specific and can be committed to version control
+- Other team members will get the same behavior
 
 ### Commands
 
@@ -156,6 +164,7 @@ require("claucode").setup({
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
 - `:ClaudeTerminalSend <text>` - Send text to Claude terminal
+- `:ClaudeDiffInstructions` - Toggle Neovim diff preview instructions in CLAUDE.md
 
 ### Default Keymaps
 
