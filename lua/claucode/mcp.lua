@@ -106,7 +106,7 @@ local function generate_mcp_config()
   }
 end
 
--- Write MCP config to a temporary file
+-- Write MCP config to a persistent file
 local function write_mcp_config()
   local config = generate_mcp_config()
   if not config then
@@ -114,11 +114,17 @@ local function write_mcp_config()
     return nil
   end
   
-  local config_file = vim.fn.tempname() .. ".json"
+  -- Use a persistent location instead of tempname
+  local data_dir = vim.fn.stdpath("data")
+  local config_dir = data_dir .. "/claucode"
+  vim.fn.mkdir(config_dir, "p")
+  
+  local config_file = config_dir .. "/mcp-config.json"
   local file = io.open(config_file, "w")
   if file then
     file:write(vim.fn.json_encode(config))
     file:close()
+    vim.notify("MCP config written to: " .. config_file, vim.log.levels.DEBUG)
     return config_file
   end
   

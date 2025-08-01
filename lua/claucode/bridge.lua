@@ -48,6 +48,11 @@ local function parse_streaming_json(line)
     if result.completion and callbacks.on_stream then
       callbacks.on_stream(result.completion)
     end
+  elseif result.type == "text" then
+    -- Handle simple text output
+    if result.text and callbacks.on_stream then
+      callbacks.on_stream(result.text)
+    end
   elseif result.type == "assistant" then
     -- Assistant message with content
     if result.message and result.message.content then
@@ -116,15 +121,37 @@ function M.send_to_claude(prompt, opts)
   -- Add MCP config if available
   local mcp = require("claucode.mcp")
   local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
+  
+  -- Debug MCP config
+  vim.schedule(function()
+    vim.notify("MCP config file: " .. (mcp_config_file or "nil"), vim.log.levels.INFO)
+    if mcp_config_file then
+      vim.notify("MCP config exists: " .. (vim.fn.filereadable(mcp_config_file) == 1 and "yes" or "no"), vim.log.levels.INFO)
+    end
+  end)
+  
   if mcp_config_file and config.mcp and config.mcp.enabled and config.bridge.show_diff then
-    table.insert(args, "--mcp-config")
-    table.insert(args, mcp_config_file)
-    vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
+    -- Check if MCP config file still exists
+    if vim.fn.filereadable(mcp_config_file) == 0 then
+      vim.notify("MCP config file missing, regenerating...", vim.log.levels.WARN)
+      -- Try to regenerate MCP setup
+      mcp.setup(config)
+      mcp_config_file = mcp.get_mcp_config_file()
+    end
     
-    -- Check if CLAUDE.md has diff instructions
-    local claude_md = require("claucode.claude_md")
-    if not claude_md.has_diff_instructions() then
-      vim.notify("Tip: Run :ClaudeDiffInstructions to add diff preview instructions to CLAUDE.md", vim.log.levels.INFO)
+    if mcp_config_file and vim.fn.filereadable(mcp_config_file) == 1 then
+      table.insert(args, "--mcp-config")
+      table.insert(args, mcp_config_file)
+      vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
+      
+      -- Check if CLAUDE.md has diff instructions
+      local claude_md = require("claucode.claude_md")
+      if not claude_md.has_diff_instructions() then
+        vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.INFO)
+        claude_md.add_diff_instructions()
+      end
+    else
+      vim.notify("MCP config file could not be created", vim.log.levels.ERROR)
     end
     
     -- With MCP, we can use acceptEdits since MCP will handle the diff preview
