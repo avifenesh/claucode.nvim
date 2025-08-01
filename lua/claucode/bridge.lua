@@ -164,7 +164,7 @@ function M.send_to_claude(prompt, opts)
   
   -- Debug: Log the full command
   vim.schedule(function()
-    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.DEBUG)
+    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
   end)
   
   -- Reset output buffer and callbacks state
@@ -236,6 +236,10 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
+      vim.schedule(function()
+        vim.notify("Claude stdout received " .. #data .. " bytes", vim.log.levels.DEBUG)
+      end)
+      
       -- Trigger on_start on first data
       if not callbacks._start_triggered and callbacks.on_start then
         callbacks._start_triggered = true
@@ -253,6 +257,10 @@ function M.send_to_claude(prompt, opts)
           callbacks.on_stream(data)
         end)
       end
+    else
+      vim.schedule(function()
+        vim.notify("Claude stdout: received nil data (EOF)", vim.log.levels.DEBUG)
+      end)
     end
   end)
   
@@ -268,7 +276,9 @@ function M.send_to_claude(prompt, opts)
     if data then
       stderr_buffer = stderr_buffer .. data
       vim.schedule(function()
-        -- Only show stderr if it contains actual errors
+        -- Always log stderr for debugging
+        vim.notify("Claude stderr: " .. data, vim.log.levels.DEBUG)
+        -- Show errors
         if data:match("error") or data:match("Error") or data:match("failed") then
           vim.notify("Claude error: " .. data, vim.log.levels.ERROR)
         end
@@ -281,14 +291,26 @@ function M.send_to_claude(prompt, opts)
   
   -- Write prompt to stdin if needed
   if use_stdin and prompt then
-    stdin:write(prompt, function(err)
+    vim.schedule(function()
+      vim.notify("Writing prompt to stdin (" .. #prompt .. " bytes)", vim.log.levels.DEBUG)
+    end)
+    stdin:write(prompt .. "\n", function(err)
       if err then
         vim.schedule(function()
           vim.notify("Error writing to stdin: " .. err, vim.log.levels.ERROR)
         end)
+      else
+        -- Close stdin after writing the prompt
+        stdin:shutdown(function()
+          vim.schedule(function()
+            vim.notify("Stdin closed after writing prompt", vim.log.levels.DEBUG)
+          end)
+        end)
       end
-      -- Keep stdin open for potential permission responses
     end)
+  else
+    -- For simple prompts, close stdin immediately
+    stdin:close()
   end
   
   return true
