@@ -17,7 +17,8 @@ This is a lightweight bridge that connects Neovim with Claude Code CLI. It's a p
 - 🔄 Real-time file watching for Claude's modifications
 - 🖥️ Terminal integration - Run Claude in a split terminal
 - 💬 Beautiful popup windows for Claude responses
-- 🔍 **NEW**: MCP-powered diff preview - See changes before they're applied!
+- 📊 Real-time progress indicators showing Claude's activity
+- 🔍 **NEW**: MCP-powered side-by-side diff preview - See changes before they're applied!
 
 ## Getting Started
 
@@ -131,13 +132,16 @@ require("claucode").setup({
 1. The plugin automatically adds its MCP server to your Claude configuration using `claude mcp add`
 2. This preserves all your existing MCP servers while adding Neovim diff preview tools
 3. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
-4. The MCP server writes diff requests to a temporary file that Neovim watches
-5. A diff preview appears in Neovim before changes are applied
-6. Review the changes and decide:
+4. When Claude wants to modify a file, a **side-by-side diff preview** appears:
+   - Left window shows the original file content
+   - Right window shows the proposed changes
+   - Neovim's built-in diff highlighting shows exactly what will change
+5. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)
-7. Your response is written to a file that the MCP server reads
+   - Press `Tab`, `<C-h>`, or `<C-l>` to switch between windows
+6. The file is only modified after you approve the changes
 
 **Requirements:**
 - Node.js and npm (for building the MCP server)
