@@ -164,7 +164,7 @@ function M.send_to_claude(prompt, opts)
   
   -- Debug: Log the full command
   vim.schedule(function()
-    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
+    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.DEBUG)
   end)
   
   -- Reset output buffer and callbacks state
@@ -185,7 +185,6 @@ function M.send_to_claude(prompt, opts)
   end
   
   -- Log the full command being executed
-  vim.notify("Executing Claude with args: " .. vim.inspect(args), vim.log.levels.DEBUG)
   
   -- Buffer for collecting JSON output and stderr
   local json_buffer = ""
@@ -198,7 +197,6 @@ function M.send_to_claude(prompt, opts)
   }, function(code, signal)
     -- Process exit callback
     vim.schedule(function()
-      vim.notify("Claude process exited - code: " .. tostring(code) .. ", signal: " .. tostring(signal), vim.log.levels.DEBUG)
       if code ~= 0 then
         vim.notify("Claude Code exited with code: " .. code, vim.log.levels.ERROR)
         if stderr_buffer ~= "" then
@@ -236,9 +234,6 @@ function M.send_to_claude(prompt, opts)
     end
     
     if data then
-      vim.schedule(function()
-        vim.notify("Claude stdout received " .. #data .. " bytes", vim.log.levels.DEBUG)
-      end)
       
       -- Trigger on_start on first data
       if not callbacks._start_triggered and callbacks.on_start then
@@ -257,10 +252,6 @@ function M.send_to_claude(prompt, opts)
           callbacks.on_stream(data)
         end)
       end
-    else
-      vim.schedule(function()
-        vim.notify("Claude stdout: received nil data (EOF)", vim.log.levels.DEBUG)
-      end)
     end
   end)
   
@@ -276,8 +267,6 @@ function M.send_to_claude(prompt, opts)
     if data then
       stderr_buffer = stderr_buffer .. data
       vim.schedule(function()
-        -- Always log stderr for debugging
-        vim.notify("Claude stderr: " .. data, vim.log.levels.DEBUG)
         -- Show errors
         if data:match("error") or data:match("Error") or data:match("failed") then
           vim.notify("Claude error: " .. data, vim.log.levels.ERROR)
@@ -291,9 +280,6 @@ function M.send_to_claude(prompt, opts)
   
   -- Write prompt to stdin if needed
   if use_stdin and prompt then
-    vim.schedule(function()
-      vim.notify("Writing prompt to stdin (" .. #prompt .. " bytes)", vim.log.levels.DEBUG)
-    end)
     stdin:write(prompt .. "\n", function(err)
       if err then
         vim.schedule(function()
@@ -301,11 +287,7 @@ function M.send_to_claude(prompt, opts)
         end)
       else
         -- Close stdin after writing the prompt
-        stdin:shutdown(function()
-          vim.schedule(function()
-            vim.notify("Stdin closed after writing prompt", vim.log.levels.DEBUG)
-          end)
-        end)
+        stdin:shutdown()
       end
     end)
   else
