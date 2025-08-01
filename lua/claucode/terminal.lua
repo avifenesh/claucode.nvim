@@ -42,7 +42,7 @@ function M.open_claude_terminal(cli_args)
     
     -- Add permission mode if diff preview is enabled and user hasn't specified one
     if config.bridge and config.bridge.show_diff and not has_permission_mode then
-      command = command .. " --permission-mode ask"
+      command = command .. " --permission-mode default"
       vim.notify("Claude Terminal: Diff preview enabled", vim.log.levels.INFO)
     end
     

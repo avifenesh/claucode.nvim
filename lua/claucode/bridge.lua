@@ -159,9 +159,9 @@ function M.send_to_claude(prompt, opts)
   -- Set permission mode based on show_diff setting
   table.insert(args, "--permission-mode")
   if config.bridge.show_diff then
-    -- Use ask mode to intercept file changes
-    table.insert(args, "ask")
-    vim.notify("Diff preview enabled - using permission mode: ask", vim.log.levels.INFO)
+    -- Use default mode to intercept file changes
+    table.insert(args, "default")
+    vim.notify("Diff preview enabled - using permission mode: default", vim.log.levels.INFO)
   else
     -- Accept edits automatically in non-interactive mode
     table.insert(args, "acceptEdits")
