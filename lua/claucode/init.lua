@@ -42,6 +42,8 @@ M.config = {
     timeout = 30000,
     -- Max output buffer size
     max_output = 1048576, -- 1MB
+    -- Show diff before applying changes (optional, default false)
+    show_diff = false,
   },
   -- UI settings
   ui = {

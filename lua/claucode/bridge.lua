@@ -2,6 +2,7 @@ local M = {}
 
 local uv = vim.loop
 local current_process = nil
+local current_stdin = nil
 local output_buffer = ""
 local callbacks = {}
 
@@ -9,6 +10,10 @@ local function escape_prompt(prompt)
   -- Escape special characters for shell
   return prompt:gsub('"', '\\"'):gsub('\n', '\\n')
 end
+
+-- Store pending tool uses for diff approval
+local pending_tool_uses = {}
+local diff_approval_needed = false
 
 local function parse_streaming_json(line)
   if line == "" then return end
@@ -32,14 +37,87 @@ local function parse_streaming_json(line)
           if callbacks.on_tool_use then
             callbacks.on_tool_use(content)
           end
-          -- Check for file modifications
-          if content.name == "Edit" or content.name == "Write" then
+          
+          -- Check if we need to show diff for file modifications
+          local config = require("claucode").get_config()
+          if config.bridge.show_diff and (content.name == "Edit" or content.name == "Write") then
             local input = content.input
-            if input and input.file_path and callbacks.on_file_change then
-              callbacks.on_file_change(input.file_path)
+            if input and input.file_path then
+              -- Store the pending tool use
+              pending_tool_uses[content.id] = {
+                content = content,
+                file_path = input.file_path,
+                new_content = input.content or input.new_string,
+              }
+              diff_approval_needed = true
+            end
+          else
+            -- No diff needed, just track file changes
+            if content.name == "Edit" or content.name == "Write" then
+              local input = content.input
+              if input and input.file_path and callbacks.on_file_change then
+                callbacks.on_file_change(input.file_path)
+              end
             end
           end
         end
+      end
+    end
+  elseif result.type == "permission_request" then
+    -- Handle permission requests for file changes
+    local config = require("claucode").get_config()
+    if config.bridge.show_diff and result.tool_name and (result.tool_name == "Edit" or result.tool_name == "Write") then
+      -- Extract file path and content from the request
+      local file_path = result.arguments and result.arguments.file_path
+      local new_content = nil
+      
+      if result.tool_name == "Write" then
+        new_content = result.arguments.content
+      elseif result.tool_name == "Edit" then
+        -- For Edit, we need to apply the changes to get the new content
+        local old_string = result.arguments.old_string
+        local new_string = result.arguments.new_string
+        
+        -- Read current file content
+        local current_content = ""
+        local file = io.open(file_path, "r")
+        if file then
+          current_content = file:read("*a")
+          file:close()
+        end
+        
+        -- Apply the edit
+        new_content = current_content:gsub(vim.pesc(old_string), new_string)
+      end
+      
+      if file_path and new_content then
+        -- Show diff preview
+        vim.schedule(function()
+          local diff = require("claucode.diff")
+          diff.show_diff_preview(file_path, new_content, 
+            function() -- on_accept
+              -- Send approval response
+              if current_process and current_stdin then
+                current_stdin:write("y\n")
+              end
+              -- Track file change
+              if callbacks.on_file_change then
+                callbacks.on_file_change(file_path)
+              end
+            end,
+            function() -- on_reject
+              -- Send rejection response
+              if current_process and current_stdin then
+                current_stdin:write("n\n")
+              end
+            end
+          )
+        end)
+      end
+    else
+      -- Auto-approve if not showing diffs
+      if current_process and current_stdin then
+        current_stdin:write("y\n")
       end
     end
   elseif result.type == "tool_response" then
@@ -68,9 +146,15 @@ function M.send_to_claude(prompt, opts)
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
-  -- Accept edits automatically in non-interactive mode
+  -- Set permission mode based on show_diff setting
   table.insert(args, "--permission-mode")
-  table.insert(args, "acceptEdits")
+  if config.bridge.show_diff then
+    -- Use ask mode to intercept file changes
+    table.insert(args, "ask")
+  else
+    -- Accept edits automatically in non-interactive mode
+    table.insert(args, "acceptEdits")
+  end
   
   -- For simple prompts, add as argument
   if prompt and prompt ~= "" and not use_stdin then
@@ -117,6 +201,7 @@ function M.send_to_claude(prompt, opts)
         parse_streaming_json(json_buffer)
       end
       current_process = nil
+      current_stdin = nil
       
       if callbacks.on_exit then
         callbacks.on_exit(code, signal)
@@ -182,6 +267,11 @@ function M.send_to_claude(prompt, opts)
     end
   end)
   
+  -- Store stdin handle if we need it for permission responses
+  if config.bridge.show_diff then
+    current_stdin = stdin
+  end
+  
   -- Write prompt to stdin if needed
   if use_stdin and prompt then
     stdin:write(prompt, function(err)
@@ -190,10 +280,16 @@ function M.send_to_claude(prompt, opts)
           vim.notify("Error writing to stdin: " .. err, vim.log.levels.ERROR)
         end)
       end
-      stdin:close()
+      -- Don't close stdin if we need it for permission responses
+      if not config.bridge.show_diff then
+        stdin:close()
+      end
     end)
   else
-    stdin:close()
+    -- Don't close stdin if we need it for permission responses
+    if not config.bridge.show_diff then
+      stdin:close()
+    end
   end
   
   return true
@@ -203,6 +299,10 @@ function M.stop()
   if current_process then
     current_process:kill("sigterm")
     current_process = nil
+  end
+  if current_stdin then
+    pcall(function() current_stdin:close() end)
+    current_stdin = nil
   end
 end
 

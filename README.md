@@ -84,6 +84,7 @@ require("claucode").setup({
   bridge = {
     timeout = 30000,     -- milliseconds
     max_output = 1048576, -- 1MB
+    show_diff = false,   -- Show diff preview before applying changes (default: false)
   },
   
   -- UI settings
@@ -101,6 +102,27 @@ require("claucode").setup({
 ```
 
 ## Usage
+
+### Diff Preview Feature (Optional)
+
+This plugin includes an optional diff preview feature that shows you what changes Claude wants to make before applying them.
+
+**Enable it in your config:**
+```lua
+require("claucode").setup({
+  bridge = {
+    show_diff = true,  -- Enable diff preview (default: false)
+  }
+})
+```
+
+**How it works:**
+- When Claude wants to modify a file, a floating window appears with a diff preview
+- Press `a` to accept the changes
+- Press `r` to reject the changes  
+- Press `q` or `<Esc>` to close (same as reject)
+
+This feature is disabled by default to maintain the original automatic behavior.
 
 ### Commands
 
