@@ -41,21 +41,12 @@ function M.open_claude_terminal(cli_args)
     local has_permission_mode = cli_args and cli_args:match("%-%-permission%-mode")
     local has_mcp_config = cli_args and cli_args:match("%-%-mcp%-config")
     
-    -- Add MCP config if available and not already specified
-    local mcp = require("claucode.mcp")
-    local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
-    if mcp_config_file and config.mcp and config.mcp.enabled and config.bridge.show_diff and not has_mcp_config then
-      command = command .. " --mcp-config " .. mcp_config_file
-      vim.notify("Claude Terminal: Using MCP server for diff preview", vim.log.levels.INFO)
-      
-      -- Check if CLAUDE.md has diff instructions
+    -- Check if CLAUDE.md has diff instructions
+    if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
       local claude_md = require("claucode.claude_md")
       if not claude_md.has_diff_instructions() then
-        vim.notify("Tip: Run :ClaudeDiffInstructions to add diff preview instructions to CLAUDE.md", vim.log.levels.INFO)
+        vim.notify("Tip: Run :ClaudeDiffInstructions to add diff preview instructions to CLAUDE.md", vim.log.levels.DEBUG)
       end
-    elseif config.bridge and config.bridge.show_diff then
-      -- Warn if diff preview is enabled without MCP
-      vim.notify("Claude Terminal: Diff preview requires MCP server. Enable MCP or disable show_diff.", vim.log.levels.WARN)
     end
     
     if cli_args and cli_args ~= "" then

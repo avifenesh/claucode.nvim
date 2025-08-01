@@ -28,7 +28,7 @@ local function parse_streaming_json(line)
   -- Debug logging - log all events to understand what's happening
   vim.schedule(function()
     if result.type then
-      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.INFO)
+      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
       
       -- Log full event for debugging
       if result.type ~= "assistant" or vim.log.levels.DEBUG then
@@ -62,7 +62,7 @@ local function parse_streaming_json(line)
         elseif content.type == "tool_use" then
           -- Log tool use for debugging
           vim.schedule(function()
-            vim.notify("Tool use: " .. (content.name or "unknown"), vim.log.levels.INFO)
+            vim.notify("Tool use: " .. (content.name or "unknown"), vim.log.levels.DEBUG)
             if content.input then
               vim.notify("Tool input: " .. vim.inspect(content.input), vim.log.levels.DEBUG)
             end
@@ -123,13 +123,13 @@ function M.send_to_claude(prompt, opts)
     -- Check if CLAUDE.md has diff instructions
     local claude_md = require("claucode.claude_md")
     if not claude_md.has_diff_instructions() then
-      vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.INFO)
+      vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.DEBUG)
       claude_md.add_diff_instructions()
     end
     
     -- Note: We don't use --mcp-config anymore as it overrides user's MCP servers
     -- Instead, we use `claude mcp add` to add our server to their configuration
-    vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.INFO)
+    vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.DEBUG)
   end
   
   -- Always use acceptEdits permission mode
@@ -146,7 +146,7 @@ function M.send_to_claude(prompt, opts)
   
   -- Debug: Log the full command
   vim.schedule(function()
-    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
+    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.DEBUG)
   end)
   
   -- Reset output buffer and callbacks state
@@ -167,7 +167,7 @@ function M.send_to_claude(prompt, opts)
   end
   
   -- Log the full command being executed
-  vim.notify("Executing Claude with args: " .. vim.inspect(args), vim.log.levels.INFO)
+  vim.notify("Executing Claude with args: " .. vim.inspect(args), vim.log.levels.DEBUG)
   
   -- Buffer for collecting JSON output and stderr
   local json_buffer = ""

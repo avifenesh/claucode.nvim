@@ -92,7 +92,7 @@ function M.add_diff_instructions()
   file:write(new_content)
   file:close()
   
-  vim.notify("Added Neovim diff preview instructions to CLAUDE.md", vim.log.levels.INFO)
+  vim.notify("Added Neovim diff preview instructions to CLAUDE.md", vim.log.levels.DEBUG)
   return true
 end
 
@@ -130,7 +130,7 @@ function M.remove_diff_instructions()
   file:write(new_content)
   file:close()
   
-  vim.notify("Removed Neovim diff preview instructions from CLAUDE.md", vim.log.levels.INFO)
+  vim.notify("Removed Neovim diff preview instructions from CLAUDE.md", vim.log.levels.DEBUG)
   return true
 end
 

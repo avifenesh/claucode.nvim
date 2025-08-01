@@ -62,7 +62,7 @@ local function reload_buffer_if_changed(filepath)
             vim.api.nvim_buf_call(buf, function()
               vim.cmd("edit!")
             end)
-            vim.notify("Reloaded: " .. vim.fn.fnamemodify(filepath, ":~:."), vim.log.levels.INFO)
+            vim.notify("Reloaded: " .. vim.fn.fnamemodify(filepath, ":~:."), vim.log.levels.DEBUG)
           else
             -- Notify user about conflict
             vim.notify(
@@ -206,7 +206,7 @@ function M.start(config)
     end,
   })
   
-  vim.notify("Claude Code file watcher started", vim.log.levels.INFO)
+  vim.notify("Claude Code file watcher started", vim.log.levels.DEBUG)
 end
 
 function M.stop()
@@ -237,7 +237,7 @@ function M.stop()
   -- Clear autocmd
   pcall(vim.api.nvim_del_augroup_by_name, "ClauCodeWatcher")
   
-  vim.notify("Claude Code file watcher stopped", vim.log.levels.INFO)
+  vim.notify("Claude Code file watcher stopped", vim.log.levels.DEBUG)
 end
 
 function M.is_running()

@@ -73,7 +73,7 @@ function M.claude(args, from_visual)
   
   -- Only show this for non-empty prompts
   if prompt and prompt ~= "" then
-    vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.INFO)
+    vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.DEBUG)
   end
   
   -- Register streaming callbacks for real-time feedback

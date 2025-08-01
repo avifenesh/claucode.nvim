@@ -39,7 +39,7 @@ local function build_mcp_server()
     return false
   end
   
-  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.INFO)
+  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.DEBUG)
   
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
@@ -63,7 +63,7 @@ local function build_mcp_server()
     return false
   end
   
-  vim.notify("MCP server built successfully!", vim.log.levels.INFO)
+  vim.notify("MCP server built successfully!", vim.log.levels.DEBUG)
   return true
 end
 
@@ -79,7 +79,7 @@ function M.build_async(config, callback)
     return
   end
   
-  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.INFO)
+  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.DEBUG)
   
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
@@ -104,7 +104,7 @@ function M.build_async(config, callback)
             vim.notify("Failed to build MCP server", vim.log.levels.ERROR)
             if callback then callback(false) end
           else
-            vim.notify("MCP server built successfully!", vim.log.levels.INFO)
+            vim.notify("MCP server built successfully!", vim.log.levels.DEBUG)
             if callback then callback(true) end
           end
         end
@@ -261,19 +261,14 @@ function M.show_diff_window(hash, filepath, original, modified)
     focusable = true,
   })
   
-  -- Force focus to the floating window
-  vim.schedule(function()
-    vim.api.nvim_set_current_win(win)
-    vim.api.nvim_set_current_buf(buf)
-    vim.cmd("stopinsert")
-    -- Move cursor to first line
-    vim.api.nvim_win_set_cursor(win, {1, 0})
-  end)
+  -- Ensure the window has focus
+  vim.api.nvim_set_current_win(win)
+  vim.cmd("stopinsert")
   
   -- Response function
   local function respond(approved)
     -- Show feedback
-    vim.notify(approved and "Accepting changes..." or "Rejecting changes...", vim.log.levels.INFO)
+    vim.notify(approved and "Accepting changes..." or "Rejecting changes...", vim.log.levels.DEBUG)
     
     -- Write response to file
     local dir = get_communication_dir()
@@ -291,7 +286,7 @@ function M.show_diff_window(hash, filepath, original, modified)
     pending_diffs[hash] = nil
     
     -- Log the response
-    vim.notify("Diff " .. (approved and "accepted" or "rejected") .. " for " .. filepath, vim.log.levels.INFO)
+    vim.notify("Diff " .. (approved and "accepted" or "rejected") .. " for " .. filepath, vim.log.levels.DEBUG)
   end
   
   -- Set up keymaps
@@ -301,24 +296,22 @@ function M.show_diff_window(hash, filepath, original, modified)
   vim.keymap.set("n", "q", function() respond(false) end, opts)
   vim.keymap.set("n", "<Esc>", function() respond(false) end, opts)
   
+  -- Add navigation keymaps
+  vim.keymap.set("n", "j", "j", opts)
+  vim.keymap.set("n", "k", "k", opts)
+  vim.keymap.set("n", "h", "h", opts)
+  vim.keymap.set("n", "l", "l", opts)
+  vim.keymap.set("n", "<C-d>", "<C-d>", opts)
+  vim.keymap.set("n", "<C-u>", "<C-u>", opts)
+  vim.keymap.set("n", "G", "G", opts)
+  vim.keymap.set("n", "gg", "gg", opts)
+  
   -- Add help keymap
   vim.keymap.set("n", "?", function()
-    vim.notify("Diff Preview Keys: a=accept, r=reject, q/<Esc>=cancel", vim.log.levels.INFO)
+    vim.notify("Diff Preview Keys: a=accept, r=reject, q/<Esc>=cancel, j/k=scroll", vim.log.levels.INFO)
   end, opts)
   
-  -- Prevent losing focus
-  vim.api.nvim_create_autocmd("WinLeave", {
-    buffer = buf,
-    callback = function()
-      -- If window still exists, refocus it
-      if vim.api.nvim_win_is_valid(win) then
-        vim.schedule(function()
-          pcall(vim.api.nvim_set_current_win, win)
-        end)
-      end
-    end,
-    once = true,
-  })
+  -- Remove the WinLeave autocmd as it prevents scrolling and closing
   
   -- Apply syntax highlighting
   vim.cmd([[
@@ -338,12 +331,12 @@ end
 function M.setup(config)
   -- Debug: Show plugin root
   local root = get_plugin_root()
-  vim.notify("MCP setup - Plugin root: " .. root, vim.log.levels.DEBUG)
+  -- vim.notify("MCP setup - Plugin root: " .. root, vim.log.levels.DEBUG)
   
   -- Check if MCP server is available
   local mcp_server = get_mcp_server_path()
   if not mcp_server and config.mcp and config.mcp.auto_build then
-    vim.notify("MCP server not found, attempting auto-build...", vim.log.levels.INFO)
+    vim.notify("MCP server not found, attempting auto-build...", vim.log.levels.DEBUG)
     -- Try to build the MCP server
     if build_mcp_server() then
       -- Check again after building
@@ -359,7 +352,7 @@ function M.setup(config)
   -- Start diff watcher if show_diff is enabled
   if config.bridge and config.bridge.show_diff then
     M.start_diff_watcher()
-    vim.notify("Claucode diff watcher started", vim.log.levels.INFO)
+    vim.notify("Claucode diff watcher started", vim.log.levels.DEBUG)
   end
 end
 

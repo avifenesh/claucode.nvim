@@ -109,7 +109,7 @@ local function merge_config(user_config)
     local detected = find_claude_command()
     if detected ~= "claude" then
       M.config.command = detected
-      vim.notify("Claude Code CLI found at: " .. detected, vim.log.levels.INFO)
+      vim.notify("Claude Code CLI found at: " .. detected, vim.log.levels.DEBUG)
     end
   end
 end
@@ -221,7 +221,7 @@ function M.setup(user_config)
   vim.api.nvim_create_user_command("ClaudeDiffStatus", function()
     local mcp = require("claucode.mcp")
     if mcp.diff_watcher_timer then
-      vim.notify("Diff watcher is RUNNING (PID: " .. vim.fn.getpid() .. ")", vim.log.levels.INFO)
+      vim.notify("Diff watcher is RUNNING (PID: " .. vim.fn.getpid() .. ")", vim.log.levels.DEBUG)
     else
       vim.notify("Diff watcher is NOT running", vim.log.levels.WARN)
     end
@@ -233,10 +233,10 @@ function M.setup(user_config)
     local mcp = require("claucode.mcp")
     if mcp.diff_watcher_timer then
       mcp.stop_diff_watcher()
-      vim.notify("Diff watcher stopped", vim.log.levels.INFO)
+      vim.notify("Diff watcher stopped", vim.log.levels.DEBUG)
     else
       mcp.start_diff_watcher()
-      vim.notify("Diff watcher started", vim.log.levels.INFO)
+      vim.notify("Diff watcher started", vim.log.levels.DEBUG)
     end
   end, {
     desc = "Toggle Claucode diff watcher",
