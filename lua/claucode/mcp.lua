@@ -207,7 +207,8 @@ function M.show_diff_window(hash, filepath, original, modified)
   -- Generate diff lines
   local diff_lines = {
     "# Claucode MCP Diff Preview",
-    "# Press 'a' to accept, 'r' to reject",
+    "# Press 'a' to accept, 'r' to reject, 'q' or <Esc> to cancel",
+    "# Instance: " .. vim.fn.getpid(),
     "",
     "--- " .. filepath,
     "+++ " .. filepath .. " (proposed)",
@@ -257,10 +258,23 @@ function M.show_diff_window(hash, filepath, original, modified)
     border = "rounded",
     title = " Claucode Diff: " .. vim.fn.fnamemodify(filepath, ":t") .. " ",
     title_pos = "center",
+    focusable = true,
   })
+  
+  -- Force focus to the floating window
+  vim.schedule(function()
+    vim.api.nvim_set_current_win(win)
+    vim.api.nvim_set_current_buf(buf)
+    vim.cmd("stopinsert")
+    -- Move cursor to first line
+    vim.api.nvim_win_set_cursor(win, {1, 0})
+  end)
   
   -- Response function
   local function respond(approved)
+    -- Show feedback
+    vim.notify(approved and "Accepting changes..." or "Rejecting changes...", vim.log.levels.INFO)
+    
     -- Write response to file
     local dir = get_communication_dir()
     local response_file = dir .. "/" .. hash .. ".response.json"
@@ -275,14 +289,36 @@ function M.show_diff_window(hash, filepath, original, modified)
     -- Clean up
     vim.api.nvim_win_close(win, true)
     pending_diffs[hash] = nil
+    
+    -- Log the response
+    vim.notify("Diff " .. (approved and "accepted" or "rejected") .. " for " .. filepath, vim.log.levels.INFO)
   end
   
   -- Set up keymaps
-  local opts = { buffer = buf, nowait = true }
+  local opts = { buffer = buf, nowait = true, silent = true }
   vim.keymap.set("n", "a", function() respond(true) end, opts)
   vim.keymap.set("n", "r", function() respond(false) end, opts)
   vim.keymap.set("n", "q", function() respond(false) end, opts)
   vim.keymap.set("n", "<Esc>", function() respond(false) end, opts)
+  
+  -- Add help keymap
+  vim.keymap.set("n", "?", function()
+    vim.notify("Diff Preview Keys: a=accept, r=reject, q/<Esc>=cancel", vim.log.levels.INFO)
+  end, opts)
+  
+  -- Prevent losing focus
+  vim.api.nvim_create_autocmd("WinLeave", {
+    buffer = buf,
+    callback = function()
+      -- If window still exists, refocus it
+      if vim.api.nvim_win_is_valid(win) then
+        vim.schedule(function()
+          pcall(vim.api.nvim_set_current_win, win)
+        end)
+      end
+    end,
+    once = true,
+  })
   
   -- Apply syntax highlighting
   vim.cmd([[

@@ -217,6 +217,30 @@ function M.setup(user_config)
   end, {
     desc = "Remove Claucode MCP server from Claude configuration",
   })
+  
+  vim.api.nvim_create_user_command("ClaudeDiffStatus", function()
+    local mcp = require("claucode.mcp")
+    if mcp.diff_watcher_timer then
+      vim.notify("Diff watcher is RUNNING (PID: " .. vim.fn.getpid() .. ")", vim.log.levels.INFO)
+    else
+      vim.notify("Diff watcher is NOT running", vim.log.levels.WARN)
+    end
+  end, {
+    desc = "Show Claucode diff watcher status",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeDiffToggle", function()
+    local mcp = require("claucode.mcp")
+    if mcp.diff_watcher_timer then
+      mcp.stop_diff_watcher()
+      vim.notify("Diff watcher stopped", vim.log.levels.INFO)
+    else
+      mcp.start_diff_watcher()
+      vim.notify("Diff watcher started", vim.log.levels.INFO)
+    end
+  end, {
+    desc = "Toggle Claucode diff watcher",
+  })
 end
 
 function M.get_config()
