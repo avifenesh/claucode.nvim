@@ -38,8 +38,14 @@ local function parse_streaming_json(line)
   
   -- Handle different event types
   if result.type == "system" and result.subtype == "init" then
+    callbacks._start_triggered = true
     if callbacks.on_start then
       callbacks.on_start()
+    end
+  elseif result.type == "completion" then
+    -- New format from Claude Code CLI
+    if result.completion and callbacks.on_stream then
+      callbacks.on_stream(result.completion)
     end
   elseif result.type == "assistant" then
     -- Assistant message with content
@@ -135,6 +141,7 @@ function M.send_to_claude(prompt, opts)
   -- Reset output buffer and callbacks state
   output_buffer = ""
   callbacks._result_triggered = false
+  callbacks._start_triggered = false
   
   -- Create pipes for process communication
   local stdout = uv.new_pipe(false)
@@ -175,8 +182,21 @@ function M.send_to_claude(prompt, opts)
       
       -- If we have output but no result callback was triggered, show it as fallback
       if output_buffer ~= "" and not callbacks._result_triggered then
+        -- Try to extract meaningful content from the output
+        local content = output_buffer
+        
+        -- Try to parse as JSON first
+        local ok, json_result = pcall(vim.json.decode, output_buffer)
+        if ok and json_result then
+          if json_result.content then
+            content = json_result.content
+          elseif json_result.message then
+            content = json_result.message
+          end
+        end
+        
         if callbacks.on_result then
-          callbacks.on_result({ content = output_buffer })
+          callbacks.on_result({ content = content })
         end
       end
       
@@ -194,12 +214,13 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
-  -- Trigger on_start callback immediately
-  if callbacks.on_start then
-    vim.schedule(function()
+  -- Set a timer to trigger on_start if we don't get init event
+  vim.defer_fn(function()
+    if not callbacks._start_triggered and callbacks.on_start then
+      callbacks._start_triggered = true
       callbacks.on_start()
-    end)
-  end
+    end
+  end, 500) -- 500ms delay
   
   -- Read stdout line by line for streaming
   stdout:read_start(function(err, data)
