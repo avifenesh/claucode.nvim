@@ -25,14 +25,15 @@ local function parse_streaming_json(line)
     return 
   end
   
-  -- Debug logging
+  -- Debug logging - log all events to understand what's happening
   vim.schedule(function()
     if result.type then
-      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
-    end
-    -- Log permission requests specifically
-    if result.type == "permission_request" then
-      vim.notify("Permission request details: " .. vim.inspect(result), vim.log.levels.DEBUG)
+      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.INFO)
+      
+      -- Log full event for debugging
+      if result.type ~= "assistant" or vim.log.levels.DEBUG then
+        vim.notify("Event details: " .. vim.inspect(result):sub(1, 500), vim.log.levels.DEBUG)
+      end
     end
   end)
   
@@ -54,12 +55,21 @@ local function parse_streaming_json(line)
         if content.type == "text" and content.text and callbacks.on_stream then
           callbacks.on_stream(content.text)
         elseif content.type == "tool_use" then
+          -- Log tool use for debugging
+          vim.schedule(function()
+            vim.notify("Tool use: " .. (content.name or "unknown"), vim.log.levels.INFO)
+            if content.input then
+              vim.notify("Tool input: " .. vim.inspect(content.input), vim.log.levels.DEBUG)
+            end
+          end)
+          
           if callbacks.on_tool_use then
             callbacks.on_tool_use(content)
           end
           
-          -- Track file changes
-          if content.name == "Edit" or content.name == "Write" then
+          -- Track file changes for both standard and MCP tools
+          if content.name == "Edit" or content.name == "Write" or 
+             content.name == "nvim_edit_with_diff" or content.name == "nvim_write_with_diff" then
             local input = content.input
             if input and input.file_path and callbacks.on_file_change then
               callbacks.on_file_change(input.file_path)
@@ -137,6 +147,14 @@ function M.send_to_claude(prompt, opts)
   if prompt and prompt ~= "" and not use_stdin then
     table.insert(args, prompt)
   end
+  
+  -- Debug: Log the full command
+  vim.schedule(function()
+    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
+    if mcp_config_file then
+      vim.notify("Using MCP config: " .. mcp_config_file, vim.log.levels.INFO)
+    end
+  end)
   
   -- Reset output buffer and callbacks state
   output_buffer = ""
