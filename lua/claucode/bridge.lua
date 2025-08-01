@@ -118,54 +118,23 @@ function M.send_to_claude(prompt, opts)
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
-  -- Add MCP config if available
-  local mcp = require("claucode.mcp")
-  local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
-  
-  -- Debug MCP config
-  vim.schedule(function()
-    vim.notify("MCP config file: " .. (mcp_config_file or "nil"), vim.log.levels.INFO)
-    if mcp_config_file then
-      vim.notify("MCP config exists: " .. (vim.fn.filereadable(mcp_config_file) == 1 and "yes" or "no"), vim.log.levels.INFO)
-    end
-  end)
-  
-  if mcp_config_file and config.mcp and config.mcp.enabled and config.bridge.show_diff then
-    -- Check if MCP config file still exists
-    if vim.fn.filereadable(mcp_config_file) == 0 then
-      vim.notify("MCP config file missing, regenerating...", vim.log.levels.WARN)
-      -- Try to regenerate MCP setup
-      mcp.setup(config)
-      mcp_config_file = mcp.get_mcp_config_file()
+  -- Check if user has configured MCP and wants diff preview
+  if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
+    -- Check if CLAUDE.md has diff instructions
+    local claude_md = require("claucode.claude_md")
+    if not claude_md.has_diff_instructions() then
+      vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.INFO)
+      claude_md.add_diff_instructions()
     end
     
-    if mcp_config_file and vim.fn.filereadable(mcp_config_file) == 1 then
-      table.insert(args, "--mcp-config")
-      table.insert(args, mcp_config_file)
-      vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
-      
-      -- Check if CLAUDE.md has diff instructions
-      local claude_md = require("claucode.claude_md")
-      if not claude_md.has_diff_instructions() then
-        vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.INFO)
-        claude_md.add_diff_instructions()
-      end
-    else
-      vim.notify("MCP config file could not be created", vim.log.levels.ERROR)
-    end
-    
-    -- With MCP, we can use acceptEdits since MCP will handle the diff preview
-    table.insert(args, "--permission-mode")
-    table.insert(args, "acceptEdits")
-  else
-    -- No MCP available
-    if config.bridge and config.bridge.show_diff then
-      vim.notify("Diff preview requires MCP server. Please enable MCP in config or disable show_diff.", vim.log.levels.WARN)
-    end
-    -- Always use acceptEdits without MCP
-    table.insert(args, "--permission-mode")
-    table.insert(args, "acceptEdits")
+    -- Note: We don't use --mcp-config anymore as it overrides user's MCP servers
+    -- Instead, we use `claude mcp add` to add our server to their configuration
+    vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.INFO)
   end
+  
+  -- Always use acceptEdits permission mode
+  table.insert(args, "--permission-mode")
+  table.insert(args, "acceptEdits")
   
   -- For complex prompts, we'll use stdin
   local use_stdin = #prompt > 1000 or prompt:match("\n")

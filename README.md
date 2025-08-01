@@ -128,10 +128,11 @@ require("claucode").setup({
 ```
 
 **How it works:**
-1. The plugin provides an MCP server with Neovim-specific diff preview tools
-2. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
-3. A diff preview appears in Neovim before changes are applied
-4. Review the changes and decide:
+1. The plugin automatically adds its MCP server to your Claude configuration using `claude mcp add`
+2. This preserves all your existing MCP servers while adding Neovim diff preview tools
+3. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
+4. A diff preview appears in Neovim before changes are applied
+5. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)
@@ -169,6 +170,8 @@ When diff preview is enabled, the plugin automatically adds instructions to your
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
 - `:ClaudeTerminalSend <text>` - Send text to Claude terminal
 - `:ClaudeDiffInstructions` - Toggle Neovim diff preview instructions in CLAUDE.md
+- `:ClaudeMCPAdd` - Add Claucode MCP server to Claude configuration
+- `:ClaudeMCPRemove` - Remove Claucode MCP server from Claude configuration
 
 ### Default Keymaps
 

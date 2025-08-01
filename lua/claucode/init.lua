@@ -136,7 +136,10 @@ function M.setup(user_config)
   
   -- Setup MCP integration if enabled
   if M.config.mcp.enabled then
+    -- Build MCP server if needed
     require("claucode.mcp").setup(M.config)
+    -- Add MCP server to Claude configuration
+    require("claucode.mcp_manager").setup(M.config)
   end
   
   -- Setup CLAUDE.md management for diff preview
@@ -201,6 +204,18 @@ function M.setup(user_config)
     require("claucode.claude_md").toggle_diff_instructions()
   end, {
     desc = "Toggle Neovim diff preview instructions in CLAUDE.md",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeMCPAdd", function()
+    require("claucode.mcp_manager").add_mcp_server()
+  end, {
+    desc = "Add Claucode MCP server to Claude configuration",
+  })
+  
+  vim.api.nvim_create_user_command("ClaudeMCPRemove", function()
+    require("claucode.mcp_manager").remove_mcp_server()
+  end, {
+    desc = "Remove Claucode MCP server from Claude configuration",
   })
 end
 
