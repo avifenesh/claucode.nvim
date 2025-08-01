@@ -128,10 +128,13 @@ function M.send_to_claude(prompt, opts)
   opts = opts or {}
   local config = require("claucode").get_config()
   
+  -- For complex prompts, we'll use stdin
+  local use_stdin = #prompt > 1000 or prompt:match("\n")
+  
   -- Build command arguments
   local args = {}
   
-  -- Use print mode
+  -- Use print mode for non-interactive output
   table.insert(args, "-p")
   
   -- Check if user has configured MCP and wants diff preview
@@ -154,10 +157,7 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, "acceptEdits")
   end
   
-  -- For complex prompts, we'll use stdin
-  local use_stdin = #prompt > 1000 or prompt:match("\n")
-  
-  -- For simple prompts, add as argument
+  -- Add the prompt as the last argument (not with -p flag)
   if prompt and prompt ~= "" and not use_stdin then
     table.insert(args, prompt)
   end

@@ -1,33 +1,32 @@
--- Simple test to check if Claude is working
-vim.notify("Testing basic Claude functionality...", vim.log.levels.INFO)
+-- Simple test for Claude command
+local config = require("claucode").get_config()
 
--- Test with a minimal configuration
-local bridge = require("claucode.bridge")
+vim.notify("=== Simple Claude Test ===", vim.log.levels.INFO)
+vim.notify("Command: " .. config.command, vim.log.levels.INFO)
 
--- Register all callbacks to see what's happening
-bridge.register_callback("on_start", function()
-  vim.notify("[START] Claude started", vim.log.levels.INFO)
-end)
+-- Test 1: Basic command without arguments
+local output1 = vim.fn.system(config.command .. " --version")
+vim.notify("Version test: " .. (output1 or "nil"), vim.log.levels.INFO)
 
-bridge.register_callback("on_stream", function(text)
-  vim.notify("[STREAM] " .. vim.inspect(text):sub(1, 100), vim.log.levels.INFO)
-end)
+-- Test 2: Basic prompt (correct syntax)
+local output2 = vim.fn.system(config.command .. " -p 'say hello'")
+vim.notify("Basic prompt test exit code: " .. vim.v.shell_error, vim.log.levels.INFO)
+if vim.v.shell_error ~= 0 then
+  vim.notify("Output: " .. (output2 or "nil"), vim.log.levels.ERROR)
+else
+  vim.notify("Success! Output length: " .. #output2, vim.log.levels.INFO)
+end
 
-bridge.register_callback("on_result", function(result)
-  vim.notify("[RESULT] " .. vim.inspect(result):sub(1, 200), vim.log.levels.INFO)
-end)
+-- Test 3: With permission mode (correct syntax)
+local output3 = vim.fn.system(config.command .. " -p --permission-mode acceptEdits 'say hello'")
+vim.notify("With permission mode exit code: " .. vim.v.shell_error, vim.log.levels.INFO)
+if vim.v.shell_error ~= 0 then
+  vim.notify("Output: " .. (output3 or "nil"), vim.log.levels.ERROR)
+else
+  vim.notify("Success! Output length: " .. #output3, vim.log.levels.INFO)
+end
 
-bridge.register_callback("on_tool_use", function(tool)
-  vim.notify("[TOOL] " .. vim.inspect(tool):sub(1, 100), vim.log.levels.INFO)
-end)
-
-bridge.register_callback("on_exit", function(code, signal)
-  vim.notify("[EXIT] Code: " .. tostring(code) .. ", Signal: " .. tostring(signal), vim.log.levels.INFO)
-end)
-
--- Send a simple test prompt
+-- Test our actual command through bridge
 vim.defer_fn(function()
-  vim.notify("Sending test prompt...", vim.log.levels.INFO)
-  local success = bridge.send_to_claude("Say hello", {})
-  vim.notify("Send result: " .. tostring(success), vim.log.levels.INFO)
+  vim.cmd("Claude say hello")
 end, 500)

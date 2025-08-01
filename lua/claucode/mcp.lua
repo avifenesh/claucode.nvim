@@ -170,6 +170,8 @@ function M.start_diff_watcher()
         if #content > 0 then
           local ok, request = pcall(vim.fn.json_decode, table.concat(content, "\n"))
           if ok and request then
+            -- Delete request file immediately to prevent re-processing
+            vim.fn.delete(request_file)
             -- Process the diff request
             vim.schedule(function()
               M.show_diff_window(request.hash, request.filepath, request.original, request.modified)
@@ -260,6 +262,12 @@ function M.show_diff_window(hash, filepath, original, modified)
     title = " Claucode Diff: " .. vim.fn.fnamemodify(filepath, ":t") .. " ",
     title_pos = "center",
   })
+  
+  -- Set window options to prevent cursor jumping
+  vim.api.nvim_win_set_option(win, "scrolloff", 0)
+  vim.api.nvim_win_set_option(win, "sidescrolloff", 0)
+  vim.api.nvim_win_set_option(win, "cursorline", false)
+  vim.api.nvim_win_set_option(win, "wrap", false)
   
   -- Response function
   local function respond(approved)
