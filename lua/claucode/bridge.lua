@@ -25,7 +25,11 @@ local function parse_streaming_json(line)
   -- Debug logging
   vim.schedule(function()
     if result.type then
-      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
+      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.INFO)
+    end
+    -- Log permission requests specifically
+    if result.type == "permission_request" then
+      vim.notify("Permission request details: " .. vim.inspect(result), vim.log.levels.INFO)
     end
   end)
   
@@ -189,6 +193,9 @@ function M.send_to_claude(prompt, opts)
     vim.notify("Please install it with: npm install -g @anthropic-ai/claude-code", vim.log.levels.ERROR)
     return false
   end
+  
+  -- Log the full command being executed
+  vim.notify("Executing Claude with args: " .. vim.inspect(args), vim.log.levels.INFO)
   
   -- Buffer for collecting JSON output and stderr
   local json_buffer = ""
