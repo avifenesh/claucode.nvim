@@ -15,17 +15,22 @@ end
 local function parse_streaming_json(line)
   if line == "" then return end
   
-  -- Try to parse each line as JSON
+  -- First check if it's plain text output (not JSON)
+  if not line:match("^%s*{") then
+    -- Handle as plain text
+    if callbacks.on_stream and line ~= "" then
+      callbacks.on_stream(line)
+    end
+    return
+  end
+  
+  -- Try to parse as JSON
   local ok, result = pcall(vim.json.decode, line)
   if not ok then 
-    -- Log parse errors for debugging
-    vim.schedule(function()
-      -- Check if it's just empty or whitespace
-      if line:match("^%s*$") then
-        return
-      end
-      vim.notify("Failed to parse Claude output: " .. line:sub(1, 100), vim.log.levels.DEBUG)
-    end)
+    -- If not JSON, treat as plain text
+    if callbacks.on_stream and not line:match("^%s*$") then
+      callbacks.on_stream(line)
+    end
     return 
   end
   
@@ -126,12 +131,8 @@ function M.send_to_claude(prompt, opts)
   -- Build command arguments
   local args = {}
   
-  -- Use print mode with streaming JSON output for real-time feedback
+  -- Use print mode
   table.insert(args, "-p")
-  -- Remove verbose flag as it might cause issues
-  -- table.insert(args, "--verbose")
-  table.insert(args, "--output-format")
-  table.insert(args, "stream-json")
   
   -- Check if user has configured MCP and wants diff preview
   if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
@@ -211,21 +212,9 @@ function M.send_to_claude(prompt, opts)
       
       -- If we have output but no result callback was triggered, show it as fallback
       if output_buffer ~= "" and not callbacks._result_triggered then
-        -- Try to extract meaningful content from the output
-        local content = output_buffer
-        
-        -- Try to parse as JSON first
-        local ok, json_result = pcall(vim.json.decode, output_buffer)
-        if ok and json_result then
-          if json_result.content then
-            content = json_result.content
-          elseif json_result.message then
-            content = json_result.message
-          end
-        end
-        
+        -- Show the output as-is
         if callbacks.on_result then
-          callbacks.on_result({ content = content })
+          callbacks.on_result({ content = output_buffer })
         end
       end
       
@@ -243,13 +232,13 @@ function M.send_to_claude(prompt, opts)
     return false
   end
   
-  -- Set a timer to trigger on_start if we don't get init event
-  vim.defer_fn(function()
-    if not callbacks._start_triggered and callbacks.on_start then
-      callbacks._start_triggered = true
+  -- Trigger on_start immediately since we're not using JSON mode
+  if callbacks.on_start then
+    callbacks._start_triggered = true
+    vim.schedule(function()
       callbacks.on_start()
-    end
-  end, 500) -- 500ms delay
+    end)
+  end
   
   -- Read stdout line by line for streaming
   stdout:read_start(function(err, data)
