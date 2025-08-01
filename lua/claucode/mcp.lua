@@ -200,74 +200,107 @@ function M.show_diff_window(hash, filepath, original, modified)
     modified = modified
   }
   
-  -- Create diff buffer
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-  vim.api.nvim_buf_set_option(buf, "filetype", "diff")
+  -- Create two buffers for side-by-side view
+  local orig_buf = vim.api.nvim_create_buf(false, true)
+  local mod_buf = vim.api.nvim_create_buf(false, true)
   
-  -- Generate diff lines
-  local diff_lines = {
-    "# Claucode MCP Diff Preview",
-    "# Press 'a' to accept, 'r' to reject, 'q' or <Esc> to cancel",
-    "# Instance: " .. vim.fn.getpid(),
-    "",
-    "--- " .. filepath,
-    "+++ " .. filepath .. " (proposed)",
-    ""
-  }
+  -- Set buffer options
+  for _, buf in ipairs({orig_buf, mod_buf}) do
+    vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+    vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+    vim.api.nvim_buf_set_option(buf, "swapfile", false)
+    vim.api.nvim_buf_set_option(buf, "modifiable", true)
+  end
   
-  -- Simple line-by-line diff
+  -- Set content
   local original_lines = vim.split(original, "\n", { plain = true })
   local modified_lines = vim.split(modified, "\n", { plain = true })
   
-  local max_lines = math.max(#original_lines, #modified_lines)
-  for i = 1, max_lines do
-    local orig = original_lines[i] or ""
-    local mod = modified_lines[i] or ""
-    
-    if orig ~= mod then
-      if orig ~= "" then
-        table.insert(diff_lines, "-" .. orig)
-      end
-      if mod ~= "" then
-        table.insert(diff_lines, "+" .. mod)
-      end
-    else
-      if orig ~= "" then
-        table.insert(diff_lines, " " .. orig)
-      end
-    end
-  end
+  vim.api.nvim_buf_set_lines(orig_buf, 0, -1, false, original_lines)
+  vim.api.nvim_buf_set_lines(mod_buf, 0, -1, false, modified_lines)
   
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, diff_lines)
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(buf, "swapfile", false)
+  -- Make buffers read-only
+  vim.api.nvim_buf_set_option(orig_buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(mod_buf, "modifiable", false)
   
-  -- Calculate window size
-  local width = math.floor(vim.o.columns * 0.8)
-  local height = math.floor(vim.o.lines * 0.8)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  -- Set filetype based on file extension
+  local ft = vim.filetype.match({ filename = filepath }) or "text"
+  vim.api.nvim_buf_set_option(orig_buf, "filetype", ft)
+  vim.api.nvim_buf_set_option(mod_buf, "filetype", ft)
   
-  -- Create floating window
-  local win = vim.api.nvim_open_win(buf, true, {
+  -- Calculate window sizes
+  local total_width = math.floor(vim.o.columns * 0.9)
+  local total_height = math.floor(vim.o.lines * 0.8)
+  local half_width = math.floor((total_width - 3) / 2) -- -3 for border between windows
+  local row = math.floor((vim.o.lines - total_height) / 2)
+  local col = math.floor((vim.o.columns - total_width) / 2)
+  
+  -- Create left window (original)
+  local left_win = vim.api.nvim_open_win(orig_buf, false, {
     relative = "editor",
-    width = width,
-    height = height,
+    width = half_width,
+    height = total_height - 4, -- Leave space for header
+    row = row + 4,
+    col = col,
+    style = "minimal",
+    border = "single",
+  })
+  
+  -- Create right window (modified)
+  local right_win = vim.api.nvim_open_win(mod_buf, true, {
+    relative = "editor",
+    width = half_width,
+    height = total_height - 4,
+    row = row + 4,
+    col = col + half_width + 2,
+    style = "minimal",
+    border = "single",
+  })
+  
+  -- Create header buffer for instructions
+  local header_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(header_buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(header_buf, "bufhidden", "wipe")
+  
+  local header_lines = {
+    "Claucode Diff Preview: " .. vim.fn.fnamemodify(filepath, ":t"),
+    "Press 'a' to accept, 'r' to reject, 'q' or <Esc> to cancel | Tab/<C-h>/<C-l> to switch windows",
+    string.rep(" ", math.floor((half_width - 4) / 2)) .. "ORIGINAL" .. string.rep(" ", math.ceil((half_width - 4) / 2)) .. 
+    " │ " .. 
+    string.rep(" ", math.floor((half_width - 4) / 2)) .. "PROPOSED" .. string.rep(" ", math.ceil((half_width - 4) / 2))
+  }
+  
+  vim.api.nvim_buf_set_lines(header_buf, 0, -1, false, header_lines)
+  vim.api.nvim_buf_set_option(header_buf, "modifiable", false)
+  
+  -- Create header window
+  local header_win = vim.api.nvim_open_win(header_buf, false, {
+    relative = "editor",
+    width = total_width,
+    height = 3,
     row = row,
     col = col,
     style = "minimal",
-    border = "rounded",
-    title = " Claucode Diff: " .. vim.fn.fnamemodify(filepath, ":t") .. " ",
+    border = { "╭", "─", "╮", "│", "┤", "─", "├", "│" },
+    title = " Diff Preview ",
     title_pos = "center",
   })
   
-  -- Set window options to prevent cursor jumping
-  vim.api.nvim_win_set_option(win, "scrolloff", 0)
-  vim.api.nvim_win_set_option(win, "sidescrolloff", 0)
-  vim.api.nvim_win_set_option(win, "cursorline", false)
-  vim.api.nvim_win_set_option(win, "wrap", false)
+  -- Set window options for all windows
+  for _, win in ipairs({left_win, right_win, header_win}) do
+    vim.api.nvim_win_set_option(win, "scrolloff", 0)
+    vim.api.nvim_win_set_option(win, "sidescrolloff", 0)
+    vim.api.nvim_win_set_option(win, "cursorline", false)
+    vim.api.nvim_win_set_option(win, "wrap", false)
+  end
+  
+  -- Enable diff mode for both windows
+  vim.api.nvim_win_call(left_win, function()
+    vim.cmd("diffthis")
+  end)
+  vim.api.nvim_win_call(right_win, function()
+    vim.cmd("diffthis")
+  end)
   
   -- Response function
   local function respond(approved)
@@ -285,12 +318,16 @@ function M.show_diff_window(hash, filepath, original, modified)
     
     vim.fn.writefile({response_data}, response_file)
     
-    -- Clean up
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
+    -- Clean up all windows and buffers
+    for _, win in ipairs({left_win, right_win, header_win}) do
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
     end
-    if vim.api.nvim_buf_is_valid(buf) then
-      vim.api.nvim_buf_delete(buf, { force = true })
+    for _, buf in ipairs({orig_buf, mod_buf, header_buf}) do
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
     end
     pending_diffs[hash] = nil
     
@@ -298,42 +335,22 @@ function M.show_diff_window(hash, filepath, original, modified)
     vim.notify("Diff " .. (approved and "accepted" or "rejected") .. " for " .. filepath, vim.log.levels.DEBUG)
   end
   
-  -- Set up keymaps
-  local opts = { buffer = buf, nowait = true, silent = true }
-  vim.keymap.set("n", "a", function() respond(true) end, opts)
-  vim.keymap.set("n", "r", function() respond(false) end, opts)
-  vim.keymap.set("n", "q", function() respond(false) end, opts)
-  vim.keymap.set("n", "<Esc>", function() respond(false) end, opts)
+  -- Set up keymaps for all buffers
+  for _, buf in ipairs({orig_buf, mod_buf, header_buf}) do
+    local opts = { buffer = buf, nowait = true, silent = true }
+    vim.keymap.set("n", "a", function() respond(true) end, opts)
+    vim.keymap.set("n", "r", function() respond(false) end, opts)
+    vim.keymap.set("n", "q", function() respond(false) end, opts)
+    vim.keymap.set("n", "<Esc>", function() respond(false) end, opts)
+  end
   
-  -- Add navigation keymaps
-  vim.keymap.set("n", "j", "j", opts)
-  vim.keymap.set("n", "k", "k", opts)
-  vim.keymap.set("n", "h", "h", opts)
-  vim.keymap.set("n", "l", "l", opts)
-  vim.keymap.set("n", "<C-d>", "<C-d>", opts)
-  vim.keymap.set("n", "<C-u>", "<C-u>", opts)
-  vim.keymap.set("n", "G", "G", opts)
-  vim.keymap.set("n", "gg", "gg", opts)
-  
-  -- Add help keymap
-  vim.keymap.set("n", "?", function()
-    vim.notify("Diff Preview Keys: a=accept, r=reject, q/<Esc>=cancel, j/k=scroll", vim.log.levels.INFO)
-  end, opts)
-  
-  -- Remove the WinLeave autocmd as it prevents scrolling and closing
-  
-  -- Apply syntax highlighting
-  vim.cmd([[
-    syntax match DiffAdded "^+.*"
-    syntax match DiffRemoved "^-.*"
-    syntax match DiffFile "^---.*\|^+++.*"
-    syntax match DiffHeader "^#.*"
-    
-    highlight link DiffAdded DiffAdd
-    highlight link DiffRemoved DiffDelete
-    highlight link DiffFile Special
-    highlight link DiffHeader Comment
-  ]])
+  -- Add navigation between windows
+  for _, buf in ipairs({orig_buf, mod_buf}) do
+    local opts = { buffer = buf, nowait = true, silent = true }
+    vim.keymap.set("n", "<Tab>", "<C-w>w", opts)
+    vim.keymap.set("n", "<C-h>", "<C-w>h", opts)
+    vim.keymap.set("n", "<C-l>", "<C-w>l", opts)
+  end
 end
 
 -- Setup MCP integration
