@@ -128,9 +128,10 @@ require("claucode").setup({
 ```
 
 **How it works:**
-1. The plugin automatically configures Claude Code CLI to use our MCP server
-2. When Claude wants to edit or write a file, a beautiful diff preview appears in Neovim
-3. Review the changes and decide:
+1. The plugin configures Claude Code CLI with `--strict-mcp-config` to use ONLY our MCP server
+2. Our MCP server overrides Claude's default file operations (Read, Edit, Write)
+3. When Claude wants to edit or write a file, a beautiful diff preview appears in Neovim
+4. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)

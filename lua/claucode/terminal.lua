@@ -45,8 +45,8 @@ function M.open_claude_terminal(cli_args)
     local mcp = require("claucode.mcp")
     local mcp_config_file = mcp.get_mcp_config_file and mcp.get_mcp_config_file()
     if mcp_config_file and config.mcp and config.mcp.enabled and not has_mcp_config then
-      command = command .. " --mcp-config " .. mcp_config_file
-      vim.notify("Claude Terminal: Using MCP server for diff preview", vim.log.levels.INFO)
+      command = command .. " --mcp-config " .. mcp_config_file .. " --strict-mcp-config"
+      vim.notify("Claude Terminal: Using MCP server for diff preview (strict mode)", vim.log.levels.INFO)
     elseif config.bridge and config.bridge.show_diff then
       -- Warn if diff preview is enabled without MCP
       vim.notify("Claude Terminal: Diff preview requires MCP server. Enable MCP or disable show_diff.", vim.log.levels.WARN)

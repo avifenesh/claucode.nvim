@@ -96,7 +96,9 @@ function M.send_to_claude(prompt, opts)
   if mcp_config_file and config.mcp and config.mcp.enabled then
     table.insert(args, "--mcp-config")
     table.insert(args, mcp_config_file)
-    vim.notify("Using MCP server for diff preview", vim.log.levels.INFO)
+    -- Use strict MCP config to ensure only our MCP servers are used
+    table.insert(args, "--strict-mcp-config")
+    vim.notify("Using MCP server for diff preview (strict mode)", vim.log.levels.INFO)
     -- With MCP, we can use acceptEdits since MCP will handle the diff preview
     table.insert(args, "--permission-mode")
     table.insert(args, "acceptEdits")

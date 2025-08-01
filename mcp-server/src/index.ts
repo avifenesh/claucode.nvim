@@ -11,13 +11,13 @@ import net from "net";
 
 // Tool schemas
 const EditFileSchema = z.object({
-  filepath: z.string().describe("Path to the file to edit"),
+  file_path: z.string().describe("Path to the file to edit"),
   old_string: z.string().describe("The exact string to replace"),
   new_string: z.string().describe("The new string to replace with")
 });
 
 const WriteFileSchema = z.object({
-  filepath: z.string().describe("Path to the file to write"),
+  file_path: z.string().describe("Path to the file to write"),
   content: z.string().describe("Content to write to the file")
 });
 
@@ -115,28 +115,41 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "edit_file_with_diff",
+        name: "Edit",
         description: "Edit a file with diff preview in Neovim",
         inputSchema: {
           type: "object",
           properties: {
-            filepath: { type: "string", description: "Path to the file to edit" },
+            file_path: { type: "string", description: "Path to the file to edit" },
             old_string: { type: "string", description: "The exact string to replace" },
             new_string: { type: "string", description: "The new string to replace with" }
           },
-          required: ["filepath", "old_string", "new_string"]
+          required: ["file_path", "old_string", "new_string"]
         }
       },
       {
-        name: "write_file_with_diff",
+        name: "Write", 
         description: "Write or create a file with diff preview in Neovim",
         inputSchema: {
           type: "object",
           properties: {
-            filepath: { type: "string", description: "Path to the file to write" },
+            file_path: { type: "string", description: "Path to the file to write" },
             content: { type: "string", description: "Content to write to the file" }
           },
-          required: ["filepath", "content"]
+          required: ["file_path", "content"]
+        }
+      },
+      {
+        name: "Read",
+        description: "Read a file from the filesystem",
+        inputSchema: {
+          type: "object",
+          properties: {
+            file_path: { type: "string", description: "Path to the file to read" },
+            offset: { type: "number", description: "Line offset to start reading from" },
+            limit: { type: "number", description: "Maximum number of lines to read" }
+          },
+          required: ["file_path"]
         }
       },
       {
@@ -171,19 +184,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   switch (name) {
-    case "edit_file_with_diff": {
-      const { filepath, old_string, new_string } = EditFileSchema.parse(args);
+    case "Edit": {
+      const { file_path, old_string, new_string } = EditFileSchema.parse(args);
       
       try {
         // Read current content
-        const content = await fs.readFile(filepath, "utf-8");
+        const content = await fs.readFile(file_path, "utf-8");
         
         // Check if old_string exists
         if (!content.includes(old_string)) {
           return {
             content: [{
               type: "text",
-              text: `Error: Could not find the text to replace in ${filepath}`
+              text: `Error: Could not find the text to replace in ${file_path}`
             }]
           };
         }
@@ -192,21 +205,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const modified = content.replace(old_string, new_string);
         
         // Show diff and wait for approval
-        const approved = await showDiffAndWait(filepath, content, modified);
+        const approved = await showDiffAndWait(file_path, content, modified);
         
         if (approved) {
-          await fs.writeFile(filepath, modified, "utf-8");
+          await fs.writeFile(file_path, modified, "utf-8");
           return {
             content: [{
               type: "text",
-              text: `Successfully edited ${filepath}`
+              text: `Successfully edited ${file_path}`
             }]
           };
         } else {
           return {
             content: [{
               type: "text",
-              text: `Edit rejected for ${filepath}`
+              text: `Edit rejected for ${file_path}`
             }]
           };
         }
@@ -220,35 +233,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
     
-    case "write_file_with_diff": {
-      const { filepath, content } = WriteFileSchema.parse(args);
+    case "Write": {
+      const { file_path, content } = WriteFileSchema.parse(args);
       
       try {
         // Read current content if file exists
         let original = "";
         try {
-          original = await fs.readFile(filepath, "utf-8");
+          original = await fs.readFile(file_path, "utf-8");
         } catch {
           // File doesn't exist
         }
         
         // Show diff and wait for approval
-        const approved = await showDiffAndWait(filepath, original, content);
+        const approved = await showDiffAndWait(file_path, original, content);
         
         if (approved) {
-          await fs.mkdir(path.dirname(filepath), { recursive: true });
-          await fs.writeFile(filepath, content, "utf-8");
+          await fs.mkdir(path.dirname(file_path), { recursive: true });
+          await fs.writeFile(file_path, content, "utf-8");
           return {
             content: [{
               type: "text",
-              text: `Successfully wrote ${filepath}`
+              text: `Successfully wrote ${file_path}`
             }]
           };
         } else {
           return {
             content: [{
               type: "text",
-              text: `Write rejected for ${filepath}`
+              text: `Write rejected for ${file_path}`
             }]
           };
         }
@@ -257,6 +270,47 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{
             type: "text",
             text: `Error: ${error.message}`
+          }]
+        };
+      }
+    }
+    
+    case "Read": {
+      const { file_path, offset, limit } = z.object({
+        file_path: z.string(),
+        offset: z.number().optional(),
+        limit: z.number().optional()
+      }).parse(args);
+      
+      try {
+        const content = await fs.readFile(file_path, "utf-8");
+        const lines = content.split('\n');
+        
+        // Apply offset and limit if provided
+        let resultLines = lines;
+        if (offset !== undefined || limit !== undefined) {
+          const start = offset || 0;
+          const end = limit ? start + limit : lines.length;
+          resultLines = lines.slice(start, end);
+        }
+        
+        // Format with line numbers like cat -n
+        const formattedLines = resultLines.map((line, idx) => {
+          const lineNum = (offset || 0) + idx + 1;
+          return `${lineNum.toString().padStart(6)}→${line}`;
+        });
+        
+        return {
+          content: [{
+            type: "text",
+            text: formattedLines.join('\n')
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error reading file: ${error.message}`
           }]
         };
       }
