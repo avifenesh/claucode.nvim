@@ -43,7 +43,7 @@ M.config = {
     -- Max output buffer size
     max_output = 1048576, -- 1MB
     -- Show diff before applying changes (optional, default false)
-    show_diff = false,
+    show_diff = true,
   },
   -- UI settings
   ui = {
