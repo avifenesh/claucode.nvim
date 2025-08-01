@@ -115,8 +115,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "Edit",
-        description: "Edit a file with diff preview in Neovim",
+        name: "nvim_edit_with_diff",
+        description: "Edit a file with diff preview in Neovim - shows changes before applying",
         inputSchema: {
           type: "object",
           properties: {
@@ -128,8 +128,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: "Write", 
-        description: "Write or create a file with diff preview in Neovim",
+        name: "nvim_write_with_diff", 
+        description: "Write or create a file with diff preview in Neovim - shows changes before applying",
         inputSchema: {
           type: "object",
           properties: {
@@ -137,19 +137,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             content: { type: "string", description: "Content to write to the file" }
           },
           required: ["file_path", "content"]
-        }
-      },
-      {
-        name: "Read",
-        description: "Read a file from the filesystem",
-        inputSchema: {
-          type: "object",
-          properties: {
-            file_path: { type: "string", description: "Path to the file to read" },
-            offset: { type: "number", description: "Line offset to start reading from" },
-            limit: { type: "number", description: "Maximum number of lines to read" }
-          },
-          required: ["file_path"]
         }
       },
       {
@@ -184,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   switch (name) {
-    case "Edit": {
+    case "nvim_edit_with_diff": {
       const { file_path, old_string, new_string } = EditFileSchema.parse(args);
       
       try {
@@ -233,7 +220,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
     
-    case "Write": {
+    case "nvim_write_with_diff": {
       const { file_path, content } = WriteFileSchema.parse(args);
       
       try {
@@ -270,47 +257,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{
             type: "text",
             text: `Error: ${error.message}`
-          }]
-        };
-      }
-    }
-    
-    case "Read": {
-      const { file_path, offset, limit } = z.object({
-        file_path: z.string(),
-        offset: z.number().optional(),
-        limit: z.number().optional()
-      }).parse(args);
-      
-      try {
-        const content = await fs.readFile(file_path, "utf-8");
-        const lines = content.split('\n');
-        
-        // Apply offset and limit if provided
-        let resultLines = lines;
-        if (offset !== undefined || limit !== undefined) {
-          const start = offset || 0;
-          const end = limit ? start + limit : lines.length;
-          resultLines = lines.slice(start, end);
-        }
-        
-        // Format with line numbers like cat -n
-        const formattedLines = resultLines.map((line, idx) => {
-          const lineNum = (offset || 0) + idx + 1;
-          return `${lineNum.toString().padStart(6)}→${line}`;
-        });
-        
-        return {
-          content: [{
-            type: "text",
-            text: formattedLines.join('\n')
-          }]
-        };
-      } catch (error: any) {
-        return {
-          content: [{
-            type: "text",
-            text: `Error reading file: ${error.message}`
           }]
         };
       }

@@ -128,13 +128,17 @@ require("claucode").setup({
 ```
 
 **How it works:**
-1. The plugin configures Claude Code CLI with `--strict-mcp-config` to use ONLY our MCP server
-2. Our MCP server overrides Claude's default file operations (Read, Edit, Write)
-3. When Claude wants to edit or write a file, a beautiful diff preview appears in Neovim
-4. Review the changes and decide:
+1. The plugin adds our MCP server alongside your other MCP servers
+2. When diff preview is enabled, the plugin automatically instructs Claude to use our Neovim-specific tools
+3. Our MCP provides `nvim_edit_with_diff` and `nvim_write_with_diff` tools
+4. Claude will automatically use these tools for file operations when diff preview is enabled
+5. A beautiful diff preview appears in Neovim before changes are applied
+6. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)
+
+**Note:** This approach preserves all your other MCP servers while adding diff preview functionality.
 
 **Requirements:**
 - Node.js and npm (for building the MCP server)
