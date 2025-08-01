@@ -93,12 +93,17 @@ local function parse_streaming_json(line)
       end
     end
   elseif result.type == "permission_request" then
-    -- Auto-approve all permission requests (MCP handles diff preview)
+    -- Handle permission requests based on MCP configuration
     vim.schedule(function()
       vim.notify("Permission request for tool: " .. (result.tool_name or "unknown"), vim.log.levels.DEBUG)
     end)
-    if current_process and current_stdin then
-      current_stdin:write("y\n")
+    
+    local config = require("claucode").get_config()
+    -- Only auto-approve if MCP is NOT handling diffs
+    if not (config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff) then
+      if current_process and current_stdin then
+        current_stdin:write("y\n")
+      end
     end
   elseif result.type == "tool_response" then
     -- Tool response - we could show this too if needed
@@ -123,7 +128,8 @@ function M.send_to_claude(prompt, opts)
   
   -- Use print mode with streaming JSON output for real-time feedback
   table.insert(args, "-p")
-  table.insert(args, "--verbose")
+  -- Remove verbose flag as it might cause issues
+  -- table.insert(args, "--verbose")
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
@@ -141,9 +147,11 @@ function M.send_to_claude(prompt, opts)
     vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.DEBUG)
   end
   
-  -- Always use acceptEdits permission mode
-  table.insert(args, "--permission-mode")
-  table.insert(args, "acceptEdits")
+  -- Only use acceptEdits if MCP is not handling diffs
+  if not (config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff) then
+    table.insert(args, "--permission-mode")
+    table.insert(args, "acceptEdits")
+  end
   
   -- For complex prompts, we'll use stdin
   local use_stdin = #prompt > 1000 or prompt:match("\n")
@@ -189,6 +197,7 @@ function M.send_to_claude(prompt, opts)
   }, function(code, signal)
     -- Process exit callback
     vim.schedule(function()
+      vim.notify("Claude process exited - code: " .. tostring(code) .. ", signal: " .. tostring(signal), vim.log.levels.DEBUG)
       if code ~= 0 then
         vim.notify("Claude Code exited with code: " .. code, vim.log.levels.ERROR)
         if stderr_buffer ~= "" then
