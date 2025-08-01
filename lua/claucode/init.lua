@@ -42,8 +42,8 @@ M.config = {
     timeout = 30000,
     -- Max output buffer size
     max_output = 1048576, -- 1MB
-    -- Show diff before applying changes (optional, default false)
-    show_diff = true,
+    -- Show diff before applying changes (requires MCP)
+    show_diff = false,
   },
   -- MCP settings
   mcp = {
@@ -114,6 +114,12 @@ end
 
 function M.setup(user_config)
   merge_config(user_config)
+  
+  -- Validate configuration
+  if M.config.bridge.show_diff and not M.config.mcp.enabled then
+    vim.notify("Claucode: show_diff requires MCP to be enabled. Disabling show_diff.", vim.log.levels.WARN)
+    M.config.bridge.show_diff = false
+  end
   
   -- Load modules
   require("claucode.commands").setup(M.config)

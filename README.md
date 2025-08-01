@@ -85,7 +85,13 @@ require("claucode").setup({
   bridge = {
     timeout = 30000,     -- milliseconds
     max_output = 1048576, -- 1MB
-    show_diff = false,   -- Show diff preview before applying changes (default: false)
+    show_diff = false,   -- Enable diff preview (requires MCP, default: false)
+  },
+  
+  -- MCP settings
+  mcp = {
+    enabled = true,      -- Enable MCP server (default: true)
+    auto_build = true,   -- Auto-build MCP server if not found (default: true)
   },
   
   -- UI settings
@@ -106,14 +112,17 @@ require("claucode").setup({
 
 ### MCP-Powered Diff Preview (NEW!)
 
-This plugin now includes an advanced MCP (Model Context Protocol) server that provides seamless diff preview functionality. When enabled, you'll see exactly what changes Claude wants to make before they're applied to your files.
+This plugin includes an MCP (Model Context Protocol) server that provides seamless diff preview functionality. When enabled, you'll see exactly what changes Claude wants to make before they're applied to your files.
 
-**Enable MCP diff preview:**
+**Enable diff preview:**
 ```lua
 require("claucode").setup({
   mcp = {
     enabled = true,     -- Enable MCP server (default: true)
     auto_build = true,  -- Auto-build MCP server if not found (default: true)
+  },
+  bridge = {
+    show_diff = true,   -- Enable diff preview (requires MCP)
   }
 })
 ```
@@ -126,20 +135,11 @@ require("claucode").setup({
    - Press `r` to reject the changes  
    - Press `q` or `<Esc>` to close (same as reject)
 
-**First-time setup:**
-The MCP server will be automatically built when you first enable it. This requires Node.js and npm to be installed.
+**Requirements:**
+- Node.js and npm (for building the MCP server)
+- The MCP server will be automatically built on first use
 
-**Fallback mode:**
-If MCP is not available, the plugin falls back to the legacy diff preview mode:
-```lua
-require("claucode").setup({
-  bridge = {
-    show_diff = true,  -- Legacy diff preview (when MCP is disabled)
-  }
-})
-```
-
-The MCP approach is recommended as it provides better integration and more reliable diff previews.
+**Note:** Diff preview requires MCP to be enabled. If MCP is disabled or unavailable, diff preview will not work.
 
 ### Commands
 

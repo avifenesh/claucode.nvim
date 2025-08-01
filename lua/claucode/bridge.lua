@@ -11,9 +11,6 @@ local function escape_prompt(prompt)
   return prompt:gsub('"', '\\"'):gsub('\n', '\\n')
 end
 
--- Store pending tool uses for diff approval
-local pending_tool_uses = {}
-local diff_approval_needed = false
 
 local function parse_streaming_json(line)
   if line == "" then return end
@@ -49,90 +46,23 @@ local function parse_streaming_json(line)
             callbacks.on_tool_use(content)
           end
           
-          -- Check if we need to show diff for file modifications
-          local config = require("claucode").get_config()
-          if config.bridge.show_diff and (content.name == "Edit" or content.name == "Write") then
+          -- Track file changes
+          if content.name == "Edit" or content.name == "Write" then
             local input = content.input
-            if input and input.file_path then
-              -- Store the pending tool use
-              pending_tool_uses[content.id] = {
-                content = content,
-                file_path = input.file_path,
-                new_content = input.content or input.new_string,
-              }
-              diff_approval_needed = true
-            end
-          else
-            -- No diff needed, just track file changes
-            if content.name == "Edit" or content.name == "Write" then
-              local input = content.input
-              if input and input.file_path and callbacks.on_file_change then
-                callbacks.on_file_change(input.file_path)
-              end
+            if input and input.file_path and callbacks.on_file_change then
+              callbacks.on_file_change(input.file_path)
             end
           end
         end
       end
     end
   elseif result.type == "permission_request" then
-    -- Handle permission requests for file changes
+    -- Auto-approve all permission requests (MCP handles diff preview)
     vim.schedule(function()
-      vim.notify("Permission request for tool: " .. (result.tool_name or "unknown"), vim.log.levels.INFO)
+      vim.notify("Permission request for tool: " .. (result.tool_name or "unknown"), vim.log.levels.DEBUG)
     end)
-    local config = require("claucode").get_config()
-    if config.bridge.show_diff and result.tool_name and (result.tool_name == "Edit" or result.tool_name == "Write") then
-      -- Extract file path and content from the request
-      local file_path = result.arguments and result.arguments.file_path
-      local new_content = nil
-      
-      if result.tool_name == "Write" then
-        new_content = result.arguments.content
-      elseif result.tool_name == "Edit" then
-        -- For Edit, we need to apply the changes to get the new content
-        local old_string = result.arguments.old_string
-        local new_string = result.arguments.new_string
-        
-        -- Read current file content
-        local current_content = ""
-        local file = io.open(file_path, "r")
-        if file then
-          current_content = file:read("*a")
-          file:close()
-        end
-        
-        -- Apply the edit
-        new_content = current_content:gsub(vim.pesc(old_string), new_string)
-      end
-      
-      if file_path and new_content then
-        -- Show diff preview
-        vim.schedule(function()
-          local diff = require("claucode.diff")
-          diff.show_diff_preview(file_path, new_content, 
-            function() -- on_accept
-              -- Send approval response
-              if current_process and current_stdin then
-                current_stdin:write("y\n")
-              end
-              -- Track file change
-              if callbacks.on_file_change then
-                callbacks.on_file_change(file_path)
-              end
-            end,
-            function() -- on_reject
-              -- Send rejection response
-              if current_process and current_stdin then
-                current_stdin:write("n\n")
-              end
-            end
-          )
-        end)
-      end
-    else
-      -- Auto-approve if not showing diffs
-      if current_process and current_stdin then
-        current_stdin:write("y\n")
-      end
+    if current_process and current_stdin then
+      current_stdin:write("y\n")
     end
   elseif result.type == "tool_response" then
     -- Tool response - we could show this too if needed
@@ -171,16 +101,13 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, "--permission-mode")
     table.insert(args, "acceptEdits")
   else
-    -- Set permission mode based on show_diff setting
-    table.insert(args, "--permission-mode")
-    if config.bridge.show_diff then
-      -- Use default mode to intercept file changes
-      table.insert(args, "default")
-      vim.notify("Diff preview enabled - using permission mode: default", vim.log.levels.INFO)
-    else
-      -- Accept edits automatically in non-interactive mode
-      table.insert(args, "acceptEdits")
+    -- No MCP available
+    if config.bridge and config.bridge.show_diff then
+      vim.notify("Diff preview requires MCP server. Please enable MCP in config or disable show_diff.", vim.log.levels.WARN)
     end
+    -- Always use acceptEdits without MCP
+    table.insert(args, "--permission-mode")
+    table.insert(args, "acceptEdits")
   end
   
   -- For complex prompts, we'll use stdin
@@ -297,10 +224,8 @@ function M.send_to_claude(prompt, opts)
     end
   end)
   
-  -- Store stdin handle if we need it for permission responses
-  if config.bridge.show_diff then
-    current_stdin = stdin
-  end
+  -- Store stdin handle for permission responses
+  current_stdin = stdin
   
   -- Write prompt to stdin if needed
   if use_stdin and prompt then
@@ -310,16 +235,12 @@ function M.send_to_claude(prompt, opts)
           vim.notify("Error writing to stdin: " .. err, vim.log.levels.ERROR)
         end)
       end
-      -- Don't close stdin if we need it for permission responses
-      if not config.bridge.show_diff then
-        stdin:close()
-      end
+      -- Keep stdin open for potential permission responses
+      -- stdin:close()
     end)
   else
-    -- Don't close stdin if we need it for permission responses
-    if not config.bridge.show_diff then
-      stdin:close()
-    end
+    -- Keep stdin open for potential permission responses
+    -- stdin:close()
   end
   
   return true
