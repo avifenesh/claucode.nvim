@@ -7,7 +7,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import { createHash } from "crypto";
-import net from "net";
+import os from "os";
 
 // Tool schemas
 const EditFileSchema = z.object({
@@ -27,9 +27,24 @@ interface PendingDiff {
   original: string;
   modified: string;
   hash: string;
+  tempFile?: string;
+  resolver?: (approved: boolean) => void;
 }
 
 const pendingDiffs = new Map<string, PendingDiff>();
+
+// Get communication directory
+function getCommunicationDir(): string {
+  const dataDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  return path.join(dataDir, 'claucode', 'diffs');
+}
+
+// Ensure communication directory exists
+async function ensureCommunicationDir(): Promise<string> {
+  const dir = getCommunicationDir();
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
 
 // Create hash for diff identification
 function createDiffHash(filepath: string, original: string, modified: string): string {
@@ -39,23 +54,56 @@ function createDiffHash(filepath: string, original: string, modified: string): s
     .substring(0, 16);
 }
 
-// Send command to Neovim
-async function sendToNeovim(command: string): Promise<void> {
-  const nvimSocket = process.env.NVIM || "/tmp/nvim.sock";
+// Write diff request to file
+async function writeDiffRequest(hash: string, diff: PendingDiff): Promise<string> {
+  const dir = await ensureCommunicationDir();
+  const requestFile = path.join(dir, `${hash}.request.json`);
   
-  return new Promise((resolve, reject) => {
-    const client = net.createConnection(nvimSocket, () => {
-      // Neovim expects msgpack-rpc format, but for simple commands we can use ex commands
-      const message = JSON.stringify([0, 0, "nvim_command", [command]]);
-      client.write(message);
-      client.end();
-      resolve();
-    });
+  await fs.writeFile(requestFile, JSON.stringify({
+    hash,
+    filepath: diff.filepath,
+    original: diff.original,
+    modified: diff.modified,
+    timestamp: Date.now()
+  }), 'utf-8');
+  
+  return requestFile;
+}
+
+// Watch for response file
+async function watchForResponse(hash: string): Promise<boolean> {
+  const dir = await ensureCommunicationDir();
+  const responseFile = path.join(dir, `${hash}.response.json`);
+  
+  return new Promise(async (resolve) => {
+    const timeout = setTimeout(async () => {
+      // Cleanup files on timeout
+      try {
+        await fs.unlink(path.join(dir, `${hash}.request.json`));
+      } catch {}
+      resolve(false);
+    }, 60000); // 60 second timeout
     
-    client.on('error', (err) => {
-      console.error(`Failed to connect to Neovim: ${err.message}`);
-      reject(err);
-    });
+    // Poll for response file
+    const checkInterval = setInterval(async () => {
+      try {
+        const content = await fs.readFile(responseFile, 'utf-8');
+        const response = JSON.parse(content);
+        
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        
+        // Cleanup files
+        try {
+          await fs.unlink(responseFile);
+          await fs.unlink(path.join(dir, `${hash}.request.json`));
+        } catch {}
+        
+        resolve(response.approved === true);
+      } catch {
+        // File doesn't exist yet, keep polling
+      }
+    }, 100); // Check every 100ms
   });
 }
 
@@ -64,37 +112,31 @@ async function showDiffAndWait(filepath: string, original: string, modified: str
   const hash = createDiffHash(filepath, original, modified);
   
   // Store the diff
-  pendingDiffs.set(hash, {
+  const diff: PendingDiff = {
     filepath,
     original,
     modified,
     hash
-  });
+  };
+  pendingDiffs.set(hash, diff);
   
-  // Create a promise that will be resolved when we get a response
-  return new Promise(async (resolve) => {
-    // Set up a timeout
-    const timeout = setTimeout(() => {
-      pendingDiffs.delete(hash);
-      resolve(false); // Timeout = reject
-    }, 60000); // 60 second timeout
+  try {
+    // Write diff request to file
+    const requestFile = await writeDiffRequest(hash, diff);
+    console.error(`Diff request written to: ${requestFile}`);
     
-    // Store the resolver
-    (pendingDiffs.get(hash) as any).resolver = (approved: boolean) => {
-      clearTimeout(timeout);
-      pendingDiffs.delete(hash);
-      resolve(approved);
-    };
+    // Wait for response
+    const approved = await watchForResponse(hash);
     
-    try {
-      // Tell Neovim to show the diff
-      await sendToNeovim(`lua require('claucode.mcp').show_diff('${hash}', '${filepath.replace(/'/g, "\\'")}')`);
-    } catch (error) {
-      clearTimeout(timeout);
-      pendingDiffs.delete(hash);
-      resolve(false);
-    }
-  });
+    // Cleanup
+    pendingDiffs.delete(hash);
+    
+    return approved;
+  } catch (error: any) {
+    console.error(`Error in showDiffAndWait: ${error.message}`);
+    pendingDiffs.delete(hash);
+    return false;
+  }
 }
 
 // Create server
@@ -137,29 +179,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             content: { type: "string", description: "Content to write to the file" }
           },
           required: ["file_path", "content"]
-        }
-      },
-      {
-        name: "get_diff",
-        description: "Get pending diff content by hash",
-        inputSchema: {
-          type: "object",
-          properties: {
-            hash: { type: "string", description: "Diff hash" }
-          },
-          required: ["hash"]
-        }
-      },
-      {
-        name: "respond_to_diff",
-        description: "Respond to a diff preview (approve/reject)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            hash: { type: "string", description: "Diff hash" },
-            approved: { type: "boolean", description: "Whether to approve the diff" }
-          },
-          required: ["hash", "approved"]
         }
       }
     ]
@@ -257,56 +276,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{
             type: "text",
             text: `Error: ${error.message}`
-          }]
-        };
-      }
-    }
-    
-    case "get_diff": {
-      const { hash } = z.object({ hash: z.string() }).parse(args);
-      const diff = pendingDiffs.get(hash);
-      
-      if (diff) {
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              filepath: diff.filepath,
-              original: diff.original,
-              modified: diff.modified
-            })
-          }]
-        };
-      } else {
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({ error: "Diff not found" })
-          }]
-        };
-      }
-    }
-    
-    case "respond_to_diff": {
-      const { hash, approved } = z.object({ 
-        hash: z.string(), 
-        approved: z.boolean() 
-      }).parse(args);
-      
-      const diff = pendingDiffs.get(hash);
-      if (diff && (diff as any).resolver) {
-        (diff as any).resolver(approved);
-        return {
-          content: [{
-            type: "text",
-            text: `Diff ${approved ? "approved" : "rejected"}`
-          }]
-        };
-      } else {
-        return {
-          content: [{
-            type: "text",
-            text: "No pending diff found"
           }]
         };
       }

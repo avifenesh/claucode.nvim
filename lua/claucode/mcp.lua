@@ -85,75 +85,62 @@ local function get_mcp_server_path()
   return nil
 end
 
--- Generate MCP config for Claude Code CLI
-local function generate_mcp_config()
-  local mcp_server = get_mcp_server_path()
-  if not mcp_server then
-    return nil
-  end
-  
-  return {
-    mcpServers = {
-      ["claucode-nvim"] = {
-        command = "node",
-        args = {mcp_server},
-        env = {
-          NVIM = vim.v.servername
-        },
-        description = "Neovim diff preview for file operations"
-      }
-    }
-  }
+
+-- Get communication directory (must match MCP server)
+local function get_communication_dir()
+  local data_dir = vim.env.XDG_DATA_HOME or vim.fn.expand("~/.local/share")
+  return data_dir .. "/claucode/diffs"
 end
 
--- Write MCP config to a persistent file
-local function write_mcp_config()
-  local config = generate_mcp_config()
-  if not config then
-    vim.notify("MCP server not found. Please build it first.", vim.log.levels.ERROR)
-    return nil
-  end
-  
-  -- Use a persistent location instead of tempname
-  local data_dir = vim.fn.stdpath("data")
-  local config_dir = data_dir .. "/claucode"
-  vim.fn.mkdir(config_dir, "p")
-  
-  local config_file = config_dir .. "/mcp-config.json"
-  local file = io.open(config_file, "w")
-  if file then
-    file:write(vim.fn.json_encode(config))
-    file:close()
-    vim.notify("MCP config written to: " .. config_file, vim.log.levels.DEBUG)
-    return config_file
-  end
-  
-  return nil
+-- Ensure communication directory exists
+local function ensure_communication_dir()
+  local dir = get_communication_dir()
+  vim.fn.mkdir(dir, "p")
+  return dir
 end
 
--- Show diff preview
-function M.show_diff(hash, filepath)
-  -- Make HTTP request to MCP server to get diff content
-  local cmd = string.format(
-    'curl -s -X POST -H "Content-Type: application/json" ' ..
-    '-d \'{"method":"call_tool","params":{"name":"get_diff","arguments":{"hash":"%s"}}}\' ' ..
-    'http://localhost:8080/mcp',
-    hash
-  )
+-- Start watching for diff requests
+function M.start_diff_watcher()
+  if M.diff_watcher_timer then
+    return -- Already watching
+  end
   
-  -- For now, we'll use a simpler approach with job control
-  vim.fn.jobstart({"claude", "mcp", "call", "claucode-nvim", "get_diff", "--args", vim.fn.json_encode({hash = hash})}, {
-    on_stdout = function(_, data)
-      local content = table.concat(data, "\n")
-      local ok, diff_data = pcall(vim.fn.json_decode, content)
+  local dir = ensure_communication_dir()
+  
+  -- Poll for request files
+  M.diff_watcher_timer = vim.loop.new_timer()
+  M.diff_watcher_timer:start(0, 500, vim.schedule_wrap(function()
+    -- List all .request.json files
+    local handle = vim.loop.fs_scandir(dir)
+    if not handle then return end
+    
+    while true do
+      local name, type = vim.loop.fs_scandir_next(handle)
+      if not name then break end
       
-      if ok and diff_data then
-        vim.schedule(function()
-          M.show_diff_window(hash, filepath, diff_data.original, diff_data.modified)
-        end)
+      if type == "file" and name:match("%.request%.json$") then
+        local request_file = dir .. "/" .. name
+        local content = vim.fn.readfile(request_file)
+        if #content > 0 then
+          local ok, request = pcall(vim.fn.json_decode, table.concat(content, "\n"))
+          if ok and request then
+            -- Process the diff request
+            vim.schedule(function()
+              M.show_diff_window(request.hash, request.filepath, request.original, request.modified)
+            end)
+          end
+        end
       end
     end
-  })
+  end))
+end
+
+-- Stop diff watcher
+function M.stop_diff_watcher()
+  if M.diff_watcher_timer then
+    M.diff_watcher_timer:close()
+    M.diff_watcher_timer = nil
+  end
 end
 
 -- Show diff in a floating window
@@ -228,11 +215,16 @@ function M.show_diff_window(hash, filepath, original, modified)
   
   -- Response function
   local function respond(approved)
-    -- Send response to MCP server
-    vim.fn.jobstart({
-      "claude", "mcp", "call", "claucode-nvim", "respond_to_diff",
-      "--args", vim.fn.json_encode({hash = hash, approved = approved})
+    -- Write response to file
+    local dir = get_communication_dir()
+    local response_file = dir .. "/" .. hash .. ".response.json"
+    local response_data = vim.fn.json_encode({
+      hash = hash,
+      approved = approved,
+      timestamp = os.time()
     })
+    
+    vim.fn.writefile({response_data}, response_file)
     
     -- Clean up
     vim.api.nvim_win_close(win, true)
@@ -260,11 +252,6 @@ function M.show_diff_window(hash, filepath, original, modified)
   ]])
 end
 
--- Get MCP config file path
-function M.get_mcp_config_file()
-  return M.mcp_config_file
-end
-
 -- Setup MCP integration
 function M.setup(config)
   -- Debug: Show plugin root
@@ -287,17 +274,16 @@ function M.setup(config)
     return
   end
   
-  -- Generate and write MCP config
-  M.mcp_config_file = write_mcp_config()
-  if not M.mcp_config_file then
-    return
+  -- Start diff watcher if show_diff is enabled
+  if config.bridge and config.bridge.show_diff then
+    M.start_diff_watcher()
+    vim.notify("Claucode diff watcher started", vim.log.levels.INFO)
   end
-  
-  -- Configure Claude Code CLI to use our MCP server
-  vim.notify("Claucode MCP server configured at: " .. M.mcp_config_file, vim.log.levels.INFO)
-  
-  -- Set environment variable for Claude commands
-  vim.env.CLAUDE_MCP_CONFIG = M.mcp_config_file
+end
+
+-- Cleanup function
+function M.cleanup()
+  M.stop_diff_watcher()
 end
 
 return M

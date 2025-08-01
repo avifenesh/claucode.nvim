@@ -147,9 +147,6 @@ function M.send_to_claude(prompt, opts)
   -- Debug: Log the full command
   vim.schedule(function()
     vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.INFO)
-    if mcp_config_file then
-      vim.notify("Using MCP config: " .. mcp_config_file, vim.log.levels.INFO)
-    end
   end)
   
   -- Reset output buffer and callbacks state
