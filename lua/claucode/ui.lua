@@ -86,13 +86,14 @@ function M.show_progress(message)
     vim.api.nvim_buf_set_option(progress_buf, 'swapfile', false)
   end
   
-  -- Update progress message
-  vim.api.nvim_buf_set_lines(progress_buf, 0, -1, false, {message})
+  -- Update progress message (split by newlines)
+  local lines = vim.split(message, '\n', {plain = true})
+  vim.api.nvim_buf_set_lines(progress_buf, 0, -1, false, lines)
   
   -- Create or update progress window
   if not progress_win or not vim.api.nvim_win_is_valid(progress_win) then
     local width = math.min(60, #message + 4)
-    local height = 1
+    local height = #lines
     
     progress_win = vim.api.nvim_open_win(progress_buf, false, {
       relative = 'editor',
