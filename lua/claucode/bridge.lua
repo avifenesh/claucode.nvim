@@ -82,7 +82,7 @@ local function parse_streaming_json(line)
           -- Only log non-standard tool use for debugging
           if content.name and not content.name:match("^(Edit|Write|Read|Bash)$") then
             vim.schedule(function()
-              vim.notify("Tool use: " .. content.name, vim.log.levels.DEBUG)
+              vim.notify("Tool use: " .. content.name, vim.log.levels.INFO)
             end)
           end
           
@@ -135,6 +135,11 @@ function M.send_to_claude(prompt, opts)
   -- Build command arguments
   local args = {}
   
+  -- Check if -c flag is provided in opts
+  if opts.continue_conversation then
+    table.insert(args, "-c")
+  end
+  
   -- Use -p flag for prompt mode (required for non-interactive streaming)
   table.insert(args, "-p")
   
@@ -150,13 +155,13 @@ function M.send_to_claude(prompt, opts)
     -- Check if CLAUDE.md has diff instructions
     local claude_md = require("claucode.claude_md")
     if not claude_md.has_diff_instructions() then
-      vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.DEBUG)
+      vim.notify("Adding diff instructions to CLAUDE.md...", vim.log.levels.INFO)
       claude_md.add_diff_instructions()
     end
     
     -- Note: We don't use --mcp-config anymore as it overrides user's MCP servers
     -- Instead, we use `claude mcp add` to add our server to their configuration
-    vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.DEBUG)
+    vim.notify("Using Claucode MCP server for diff preview", vim.log.levels.INFO)
   end
   
   -- Only use acceptEdits if MCP is not handling diffs

@@ -80,7 +80,7 @@ function M._continue_add_mcp_server(callback)
     -- Try to build it
     local mcp = require("claucode.mcp")
     if mcp.build_async then
-      vim.notify("MCP server not found, attempting to build...", vim.log.levels.DEBUG)
+      vim.notify("MCP server not found, attempting to build...", vim.log.levels.INFO)
       mcp.build_async(require("claucode").get_config(), function(success)
         if success and vim.fn.filereadable(mcp_server) == 1 then
           -- Continue with adding the server
@@ -97,7 +97,7 @@ function M._continue_add_mcp_server(callback)
       return
     end
   else
-    vim.notify("Found MCP server at: " .. mcp_server, vim.log.levels.DEBUG)
+    vim.notify("Found MCP server at: " .. mcp_server, vim.log.levels.INFO)
   end
   
   -- Continue with adding the server

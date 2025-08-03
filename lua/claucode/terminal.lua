@@ -40,6 +40,7 @@ function M.open_claude_terminal(cli_args)
     -- Check if user provided their own permission mode or MCP config
     local has_permission_mode = cli_args and cli_args:match("%-%-permission%-mode")
     local has_mcp_config = cli_args and cli_args:match("%-%-mcp%-config")
+    local has_continue_flag = cli_args and cli_args:match("%-c")
     
     -- Check if CLAUDE.md has diff instructions
     if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then

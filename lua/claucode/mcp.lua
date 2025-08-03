@@ -353,9 +353,7 @@ end
 
 -- Setup MCP integration
 function M.setup(config)
-  -- Debug: Show plugin root
   local root = get_plugin_root()
-  -- vim.notify("MCP setup - Plugin root: " .. root, vim.log.levels.DEBUG)
   
   -- Check if MCP server is available
   local mcp_server = get_mcp_server_path()

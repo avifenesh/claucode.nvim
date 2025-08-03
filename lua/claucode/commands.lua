@@ -45,15 +45,22 @@ function M.claude(args, from_visual)
   
   -- Check if we should include current file context
   local include_file = false
+  local continue_conversation = false
   local prompt = args
   
+  -- Parse -c flag for continuing conversation
+  if args:match("^%-c%s+") then
+    continue_conversation = true
+    prompt = args:gsub("^%-c%s+", "")
+  end
+  
   -- Parse --file flag
-  if args:match("^%-%-file%s+") then
+  if prompt:match("^%-%-file%s+") then
     include_file = true
-    prompt = args:gsub("^%-%-file%s+", "")
-  elseif args:match("^%-f%s+") then
+    prompt = prompt:gsub("^%-%-file%s+", "")
+  elseif prompt:match("^%-f%s+") then
     include_file = true
-    prompt = args:gsub("^%-f%s+", "")
+    prompt = prompt:gsub("^%-f%s+", "")
   end
   
   -- If called from visual mode or we have a stored selection, include it
@@ -106,6 +113,7 @@ function M.claude(args, from_visual)
   -- Send to Claude
   local success = bridge.send_to_claude(prompt, {
     include_current_file = include_file,
+    continue_conversation = continue_conversation,
   })
   
   if not success then
