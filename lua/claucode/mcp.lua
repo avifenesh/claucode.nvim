@@ -376,7 +376,7 @@ function M.setup(config)
   -- Start diff watcher if show_diff is enabled
   if config.bridge and config.bridge.show_diff then
     M.start_diff_watcher()
-    -- Diff watcher started
+    vim.notify("Claucode: Diff preview enabled", vim.log.levels.INFO)
   end
 end
 

@@ -136,7 +136,7 @@ function M._do_add_mcp_server(mcp_server, callback)
         
         if callback then callback(false) end
       else
-        -- MCP server added successfully
+        vim.notify("Claucode: MCP server connected", vim.log.levels.INFO)
         if callback then callback(true) end
       end
     end
