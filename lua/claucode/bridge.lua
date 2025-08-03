@@ -34,13 +34,8 @@ local function parse_streaming_json(line)
     return 
   end
   
-  -- Debug logging for specific events only
-  if result.type and result.type ~= "text" and result.type ~= "content" and 
-     result.type ~= "message" and result.type ~= "content_block_delta" then
-    vim.schedule(function()
-      vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
-    end)
-  end
+  -- Only log truly unexpected events to reduce debug noise
+  -- Common events like "assistant", "system", "result", "text", "content", "message", "content_block_delta" are expected
   
   -- Handle different event types
   if result.type == "system" and result.subtype == "init" then

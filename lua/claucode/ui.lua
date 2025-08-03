@@ -4,6 +4,8 @@ local popup_buf = nil
 local popup_win = nil
 local progress_win = nil
 local progress_buf = nil
+local stream_win = nil
+local stream_buf = nil
 local content_accumulator = ""
 
 function M.show_response(content)
@@ -156,33 +158,68 @@ function M._create_streaming_popup()
   vim.keymap.set('n', '<Esc>', ':close<CR>', opts)
 end
 
+function M._create_stream_window()
+  -- Create stream buffer if it doesn't exist
+  if not stream_buf or not vim.api.nvim_buf_is_valid(stream_buf) then
+    stream_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(stream_buf, 'buftype', 'nofile')
+    vim.api.nvim_buf_set_option(stream_buf, 'swapfile', false)
+    vim.api.nvim_buf_set_option(stream_buf, 'filetype', 'markdown')
+  end
+  
+  -- Calculate window dimensions - bottom right corner
+  local width = math.min(60, math.floor(vim.o.columns * 0.4))
+  local height = math.min(20, math.floor(vim.o.lines * 0.3))
+  
+  -- Position in bottom right
+  local row = vim.o.lines - height - 3
+  local col = vim.o.columns - width - 2
+  
+  -- Create stream window
+  stream_win = vim.api.nvim_open_win(stream_buf, false, {
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' Claude Streaming ',
+    title_pos = 'center',
+    focusable = false,
+  })
+  
+  -- Set window options
+  vim.api.nvim_win_set_option(stream_win, 'wrap', true)
+  vim.api.nvim_win_set_option(stream_win, 'linebreak', true)
+end
+
 function M.start_streaming()
   content_accumulator = ""
-  -- Create the streaming popup immediately
-  M._create_streaming_popup()
+  -- Create the streaming window in bottom right
+  M._create_stream_window()
   M.show_progress("🤔 Claude is thinking...")
 end
 
 function M.stream_content(text)
   content_accumulator = content_accumulator .. text
   
-  -- Show real-time streaming by updating the popup
-  if not popup_buf or not vim.api.nvim_buf_is_valid(popup_buf) then
-    -- Create popup on first stream
-    M._create_streaming_popup()
+  -- Show real-time streaming in the bottom right window
+  if not stream_buf or not vim.api.nvim_buf_is_valid(stream_buf) then
+    M._create_stream_window()
   end
   
-  -- Update popup with current accumulated content
-  if popup_buf and vim.api.nvim_buf_is_valid(popup_buf) then
+  -- Update stream window with current content
+  if stream_buf and vim.api.nvim_buf_is_valid(stream_buf) then
     local lines = vim.split(content_accumulator, '\n')
-    vim.api.nvim_buf_set_lines(popup_buf, 0, -1, false, lines)
+    vim.api.nvim_buf_set_lines(stream_buf, 0, -1, false, lines)
     
-    -- Auto-scroll to bottom if popup window exists
-    if popup_win and vim.api.nvim_win_is_valid(popup_win) then
+    -- Auto-scroll to bottom if stream window exists
+    if stream_win and vim.api.nvim_win_is_valid(stream_win) then
       local line_count = #lines
       if line_count > 0 then
         -- Use pcall to handle any cursor setting errors
-        pcall(vim.api.nvim_win_set_cursor, popup_win, {line_count, 0})
+        pcall(vim.api.nvim_win_set_cursor, stream_win, {line_count, 0})
       end
     end
   end
@@ -219,17 +256,21 @@ function M.on_tool_use(tool_data)
   M.show_progress(message)
 end
 
+function M.close_stream_window()
+  if stream_win and vim.api.nvim_win_is_valid(stream_win) then
+    vim.api.nvim_win_close(stream_win, true)
+  end
+  stream_win = nil
+end
+
 function M.finish_streaming()
   M.hide_progress()
   
-  -- Update streaming popup title to indicate completion
-  if popup_win and vim.api.nvim_win_is_valid(popup_win) then
-    vim.api.nvim_win_set_config(popup_win, {
-      title = ' Claude Response (Complete) ',
-      title_pos = 'center',
-    })
-  elseif content_accumulator ~= "" then
-    -- Fallback: create final popup if streaming popup wasn't created
+  -- Close the streaming window
+  M.close_stream_window()
+  
+  -- Show final response in popup window
+  if content_accumulator ~= "" then
     M.show_response(content_accumulator)
   end
 end
