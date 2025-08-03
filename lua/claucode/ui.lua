@@ -112,6 +112,50 @@ function M.hide_progress()
   end
 end
 
+function M._create_streaming_popup()
+  -- Create buffer if it doesn't exist
+  if not popup_buf or not vim.api.nvim_buf_is_valid(popup_buf) then
+    popup_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(popup_buf, 'buftype', 'nofile')
+    vim.api.nvim_buf_set_option(popup_buf, 'swapfile', false)
+    vim.api.nvim_buf_set_option(popup_buf, 'filetype', 'markdown')
+  end
+  
+  -- Get editor dimensions
+  local width = vim.api.nvim_get_option("columns")
+  local height = vim.api.nvim_get_option("lines")
+  
+  -- Calculate popup size (80% of screen)
+  local win_width = math.floor(width * 0.8)
+  local win_height = math.floor(height * 0.8)
+  
+  -- Calculate position (centered)
+  local row = math.floor((height - win_height) / 2)
+  local col = math.floor((width - win_width) / 2)
+  
+  -- Create popup window
+  popup_win = vim.api.nvim_open_win(popup_buf, false, {
+    relative = 'editor',
+    width = win_width,
+    height = win_height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' Claude Response (Streaming) ',
+    title_pos = 'center',
+  })
+  
+  -- Set window options
+  vim.api.nvim_win_set_option(popup_win, 'wrap', true)
+  vim.api.nvim_win_set_option(popup_win, 'linebreak', true)
+  
+  -- Add keymaps for the popup
+  local opts = { noremap = true, silent = true, buffer = popup_buf }
+  vim.keymap.set('n', 'q', ':close<CR>', opts)
+  vim.keymap.set('n', '<Esc>', ':close<CR>', opts)
+end
+
 function M.start_streaming()
   content_accumulator = ""
   if not progress_win or not vim.api.nvim_win_is_valid(progress_win) then
@@ -121,6 +165,27 @@ end
 
 function M.stream_content(text)
   content_accumulator = content_accumulator .. text
+  
+  -- Show real-time streaming by updating the popup
+  if not popup_buf or not vim.api.nvim_buf_is_valid(popup_buf) then
+    -- Create popup on first stream
+    M._create_streaming_popup()
+  end
+  
+  -- Update popup with current accumulated content
+  if popup_buf and vim.api.nvim_buf_is_valid(popup_buf) then
+    local lines = vim.split(content_accumulator, '\n')
+    vim.api.nvim_buf_set_lines(popup_buf, 0, -1, false, lines)
+    
+    -- Auto-scroll to bottom if popup window exists
+    if popup_win and vim.api.nvim_win_is_valid(popup_win) then
+      local line_count = #lines
+      if line_count > 0 then
+        vim.api.nvim_win_set_cursor(popup_win, {line_count, 0})
+      end
+    end
+  end
+  
   -- Update progress to show we're receiving data
   local char_count = #content_accumulator
   local message = string.format("💭 Claude is responding... (%d chars)", char_count)
@@ -155,8 +220,15 @@ end
 
 function M.finish_streaming()
   M.hide_progress()
-  -- Ensure final content is shown
-  if content_accumulator ~= "" then
+  
+  -- Update streaming popup title to indicate completion
+  if popup_win and vim.api.nvim_win_is_valid(popup_win) then
+    vim.api.nvim_win_set_config(popup_win, {
+      title = ' Claude Response (Complete) ',
+      title_pos = 'center',
+    })
+  elseif content_accumulator ~= "" then
+    -- Fallback: create final popup if streaming popup wasn't created
     M.show_response(content_accumulator)
   end
 end
