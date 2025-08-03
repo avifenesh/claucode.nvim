@@ -136,7 +136,7 @@ local function merge_config(user_config)
 		local detected = find_claude_command()
 		if detected ~= "claude" then
 			M.config.command = detected
-			vim.notify("Claucode: Claude CLI ready", vim.log.levels.INFO)
+			-- Removed startup notification to reduce noise
 		end
 	end
 end
@@ -248,7 +248,7 @@ function M.setup(user_config)
 	vim.api.nvim_create_user_command("ClaudeDiffStatus", function()
 		local mcp = require("claucode.mcp")
 		if mcp.diff_watcher_timer then
-			vim.notify("Claucode: Diff preview is active", vim.log.levels.INFO)
+			-- Removed startup notification to reduce noise
 		else
 			vim.notify("Claucode: Diff preview is inactive", vim.log.levels.INFO)
 		end

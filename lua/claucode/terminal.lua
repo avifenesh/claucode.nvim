@@ -45,7 +45,7 @@ function M.open_claude_terminal(cli_args)
     if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
       local claude_md = require("claucode.claude_md")
       if not claude_md.has_diff_instructions() then
-        vim.notify("Tip: Run :ClaudeDiffInstructions to add diff preview instructions to CLAUDE.md", vim.log.levels.DEBUG)
+        -- Removed tip notification to reduce noise
       end
     end
     
