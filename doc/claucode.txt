@@ -10,23 +10,38 @@ CONTENTS                                                    *claucode-contents*
     5. Commands .................................... |claucode-commands|
     6. Keymaps ..................................... |claucode-keymaps|
     7. Functions ................................... |claucode-functions|
-    8. FAQ ......................................... |claucode-faq|
+    8. MCP Integration ............................. |claucode-mcp|
+    9. FAQ ......................................... |claucode-faq|
 
 ==============================================================================
 INTRODUCTION                                            *claucode-introduction*
 
-claucode.nvim is a Neovim plugin that bridges your editor with Claude Code
-CLI, enabling seamless AI-powered coding assistance directly from Neovim.
+claucode.nvim is a community-driven Neovim plugin that bridges your editor
+with Claude Code CLI, enabling seamless AI-powered coding assistance directly
+from Neovim.
 
 This plugin acts as a bridge - it does NOT implement AI features directly.
 Instead, it facilitates communication between Neovim and Claude Code running
 in your terminal.
+
+Features:
+- Send prompts to Claude directly from Neovim
+- Automatic file change detection and buffer reloading
+- Visual selection support for targeted assistance
+- File context inclusion with prompts
+- Real-time file watching for Claude's modifications
+- Terminal integration - Run Claude in a split terminal
+- Beautiful popup windows for Claude responses
+- Real-time progress indicators showing Claude's activity
+- MCP-powered side-by-side diff preview
 
 ==============================================================================
 REQUIREMENTS                                            *claucode-requirements*
 
 - Neovim >= 0.5.0
 - Claude Code CLI installed: `npm install -g @anthropic-ai/claude-code`
+- ANTHROPIC_API_KEY environment variable set
+- Node.js and npm (for MCP server)
 - Git (for diff functionality)
 
 ==============================================================================
@@ -35,8 +50,7 @@ INSTALLATION                                            *claucode-installation*
 Using lazy.nvim:
 >lua
     {
-      "your-username/claucode.nvim",
-      event = "VeryLazy",
+      "avifenesh/claucode.nvim",
       config = function()
         require("claucode").setup()
       end,
@@ -46,7 +60,7 @@ Using lazy.nvim:
 Using packer.nvim:
 >lua
     use {
-      "your-username/claucode.nvim",
+      "avifenesh/claucode.nvim",
       config = function()
         require("claucode").setup()
       end
@@ -60,10 +74,11 @@ Setup function accepts the following options:
 >lua
     require("claucode").setup({
       -- Claude Code CLI command
-      command = "claude",
+      -- Use full path if claude is not in your PATH
+      command = "claude",  -- or "/home/username/.claude/local/claude"
       
       -- Default model to use
-      model = "claude-3-5-sonnet-20241022",
+      model = "claude-sonnet-4-20250514",
       
       -- Auto-start file watcher on setup
       auto_start_watcher = true,
@@ -71,19 +86,42 @@ Setup function accepts the following options:
       -- Enable default keymaps
       keymaps = {
         enable = true,
-        prefix = "<leader>c",
+        prefix = "<leader>ai",  -- AI prefix to avoid conflicts
       },
       
       -- File watcher settings
       watcher = {
-        debounce = 100,
-        ignore_patterns = { "%.git/", "node_modules/", "%.swp$" },
+        debounce = 100,  -- milliseconds
+        ignore_patterns = {
+          "%.git/", "node_modules/", "%.swp$", "%.swo$",
+          -- Binary and compiled files
+          "%.class$", "%.jar$", "%.war$", "%.ear$",  -- Java
+          "%.pyc$", "%.pyo$", "%.pyd$",              -- Python
+          "%.exe$", "%.dll$", "%.so$", "%.dylib$",   -- Executables
+          "%.o$", "%.a$", "%.lib$",                  -- Object files
+          -- Media files
+          "%.pdf$", "%.jpg$", "%.jpeg$", "%.png$",
+          "%.gif$", "%.bmp$", "%.ico$", "%.webp$",
+          "%.mp3$", "%.mp4$", "%.avi$", "%.mov$",
+          -- Archives
+          "%.zip$", "%.tar$", "%.gz$", "%.rar$",
+          -- Databases
+          "%.db$", "%.sqlite$", "%.sqlite3$",
+        },
       },
       
       -- Bridge settings
       bridge = {
-        timeout = 30000,
-        max_output = 1048576, -- 1MB
+        timeout = 30000,       -- milliseconds
+        max_output = 1048576,  -- 1MB
+        show_diff = false,     -- Enable diff preview (requires MCP)
+        auto_claude_md = true, -- Auto-add diff instructions to CLAUDE.md
+      },
+      
+      -- MCP settings
+      mcp = {
+        enabled = true,     -- Enable MCP server (default: true)
+        auto_build = true,  -- Auto-build MCP server if not found
       },
       
       -- UI settings
@@ -92,6 +130,9 @@ Setup function accepts the following options:
           width = 0.8,
           height = 0.8,
           border = "rounded",
+        },
+        terminal = {
+          height = 0.5,  -- Terminal height as fraction of screen
         },
       },
     })
@@ -103,6 +144,7 @@ COMMANDS                                                    *claucode-commands*
 :Claude {prompt}                                                      *:Claude*
     Send a prompt to Claude Code CLI. The prompt can include special flags:
     - --file or -f: Include current file context
+    Shows response in a popup window with real-time streaming.
 
 :ClaudeReview                                                   *:ClaudeReview*
     Review pending changes from Claude with diff preview.
@@ -116,6 +158,10 @@ COMMANDS                                                    *claucode-commands*
 :ClaudeTerminal [{args}]                                     *:ClaudeTerminal*
     Open Claude in a terminal split. Optional CLI arguments can be passed.
     When show_diff = true in config, diff preview will be enabled automatically.
+    Examples:
+    :ClaudeTerminal --continue
+    :ClaudeTerminal --mcp-config ../.mcp.json
+    :ClaudeTerminal --continue --mcp-config ../.mcp.json
 
 :ClaudeTerminalToggle                                  *:ClaudeTerminalToggle*
     Toggle the Claude terminal window open/closed.
@@ -123,26 +169,44 @@ COMMANDS                                                    *claucode-commands*
 :ClaudeTerminalSend {text}                              *:ClaudeTerminalSend*
     Send text to the Claude terminal.
 
+:ClaudeDiffInstructions                              *:ClaudeDiffInstructions*
+    Toggle Neovim diff preview instructions in CLAUDE.md file.
+
+:ClaudeMCPAdd                                                 *:ClaudeMCPAdd*
+    Add Claucode MCP server to Claude configuration using `claude mcp add`.
+
+:ClaudeMCPRemove                                           *:ClaudeMCPRemove*
+    Remove Claucode MCP server from Claude configuration.
+
+:ClaudeDiffStatus                                           *:ClaudeDiffStatus*
+    Show current diff watcher status (active/inactive).
+
+:ClaudeDiffToggle                                           *:ClaudeDiffToggle*
+    Toggle the diff watcher on/off.
+
 ==============================================================================
 KEYMAPS                                                      *claucode-keymaps*
 
-Default keymaps use <leader>c prefix. In normal mode:
+Default keymaps use <leader>ai prefix (configurable). In normal mode:
 
-<leader>cc    Open Claude prompt
-<leader>cf    Review current file
-<leader>ce    Explain code
-<leader>cx    Fix issues
-<leader>ct    Generate tests
-<leader>cr    Review changes
-<leader>cs    Stop Claude
-<leader>cS    Start watcher
-<leader>ca    Complete at cursor
+<leader>aic    Open Claude prompt
+<leader>aif    Review current file
+<leader>aie    Explain code (selection or file)
+<leader>aix    Fix issues in code
+<leader>ait    Generate tests
+<leader>air    Review pending changes
+<leader>ais    Stop Claude
+<leader>aiS    Start watcher
+<leader>aia    Complete at cursor
+<leader>aio    Open Claude terminal
+<leader>aiT    Toggle Claude terminal
 
 In visual mode:
-<leader>cc    Send selection with prompt
-<leader>ce    Explain selection
-<leader>cx    Fix selection
-<leader>ct    Test selection
+<leader>aic    Send selection with prompt
+<leader>aie    Explain selection
+<leader>aix    Fix selection
+<leader>ait    Test selection
+<leader>aiT    Send selection to terminal
 
 ==============================================================================
 FUNCTIONS                                                  *claucode-functions*
@@ -150,8 +214,14 @@ FUNCTIONS                                                  *claucode-functions*
 require("claucode").setup({config})                          *claucode.setup()*
     Initialize the plugin with optional configuration.
 
+require("claucode").get_config()                         *claucode.get_config()*
+    Get current plugin configuration.
+
 require("claucode.bridge").send_to_claude(prompt, opts)
-    Send a prompt to Claude Code CLI.
+    Send a prompt to Claude Code CLI. Supports streaming callbacks.
+
+require("claucode.bridge").stop()
+    Stop the Claude bridge.
 
 require("claucode.watcher").start(config)
     Start the file watcher.
@@ -162,6 +232,64 @@ require("claucode.watcher").stop()
 require("claucode.review").show_pending_changes()
     Show pending changes in a review window.
 
+require("claucode.terminal").open_claude_terminal(args)
+    Open Claude in a terminal split with optional CLI arguments.
+
+require("claucode.terminal").toggle_claude_terminal()
+    Toggle Claude terminal window.
+
+require("claucode.terminal").send_to_terminal(text)
+    Send text to Claude terminal.
+
+require("claucode.mcp").setup(config)
+    Setup MCP server integration.
+
+require("claucode.mcp_manager").setup(config)
+    Manage MCP server in Claude configuration.
+
+require("claucode.claude_md").setup()
+    Setup automatic CLAUDE.md management for diff preview.
+
+==============================================================================
+MCP INTEGRATION                                                  *claucode-mcp*
+
+claucode.nvim includes a Model Context Protocol (MCP) server that provides
+seamless diff preview functionality. When enabled, you'll see exactly what
+changes Claude wants to make before they're applied to your files.
+
+Enable diff preview:
+>lua
+    require("claucode").setup({
+      mcp = {
+        enabled = true,     -- Enable MCP server
+        auto_build = true,  -- Auto-build if not found
+      },
+      bridge = {
+        show_diff = true,   -- Enable diff preview
+      }
+    })
+<
+
+How it works:
+1. The plugin automatically adds its MCP server to your Claude configuration
+2. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` tools
+3. When Claude modifies a file, a side-by-side diff preview appears:
+   - Left window: original file content
+   - Right window: proposed changes
+   - Neovim's diff highlighting shows exactly what will change
+4. Review the changes and decide:
+   - Press `a` to accept changes
+   - Press `r` to reject changes
+   - Press `q` or `<Esc>` to close (same as reject)
+   - Press `Tab`, `<C-h>`, or `<C-l>` to switch between windows
+5. The file is only modified after you approve the changes
+
+CLAUDE.md Integration:
+- When `show_diff = true`, instructions are auto-added to CLAUDE.md
+- This ensures Claude uses diff preview in both command and terminal mode
+- Use `:ClaudeDiffInstructions` to manually toggle instructions
+- Set `bridge.auto_claude_md = false` to disable automatic updates
+
 ==============================================================================
 FAQ                                                              *claucode-faq*
 
@@ -170,10 +298,23 @@ A: This plugin bridges Neovim with Claude Code CLI. It doesn't provide inline
    completions but allows you to interact with Claude for larger tasks.
 
 Q: Do I need to run Claude Code separately?
-A: Yes, Claude Code should be running in your terminal in the same project.
+A: No, you can use `:ClaudeTerminal` to run Claude in a Neovim split.
 
 Q: Can I use this without Git?
 A: Yes, but diff functionality will be limited.
+
+Q: Claude Code CLI not found error?
+A: Find where claude is installed: `which claude` in terminal.
+   Update your config with the full path:
+>lua
+    require("claucode").setup({
+      command = "/full/path/to/claude",
+    })
+<
+
+Q: How do I enable diff preview?
+A: Set `bridge.show_diff = true` and `mcp.enabled = true` in your config.
+   The MCP server will be built automatically if needed.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

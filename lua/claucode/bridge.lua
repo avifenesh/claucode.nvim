@@ -34,12 +34,13 @@ local function parse_streaming_json(line)
     return 
   end
   
-  -- Only log non-routine events for debugging
-  vim.schedule(function()
-    if result.type and result.type ~= "assistant" and result.type ~= "text" and result.type ~= "content" then
+  -- Debug logging for specific events only
+  if result.type and result.type ~= "text" and result.type ~= "content" and 
+     result.type ~= "message" and result.type ~= "content_block_delta" then
+    vim.schedule(function()
       vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
-    end
-  end)
+    end)
+  end
   
   -- Handle different event types
   if result.type == "system" and result.subtype == "init" then
@@ -61,6 +62,20 @@ local function parse_streaming_json(line)
     -- Handle content events
     if result.content and callbacks.on_stream then
       callbacks.on_stream(result.content)
+    end
+  elseif result.type == "message" then
+    -- Handle message events (common in streaming)
+    if result.delta and result.delta.type == "text_delta" and result.delta.text then
+      if callbacks.on_stream then
+        callbacks.on_stream(result.delta.text)
+      end
+    end
+  elseif result.type == "content_block_delta" then
+    -- Handle content block delta events
+    if result.delta and result.delta.type == "text_delta" and result.delta.text then
+      if callbacks.on_stream then
+        callbacks.on_stream(result.delta.text)
+      end
     end
   elseif result.type == "assistant" then
     -- Assistant message with content
@@ -125,8 +140,12 @@ function M.send_to_claude(prompt, opts)
   -- Build command arguments
   local args = {}
   
-  -- Use print mode for non-interactive output
+  -- Use -p flag for prompt mode (required for non-interactive streaming)
   table.insert(args, "-p")
+  
+  -- Add output format for streaming JSON
+  table.insert(args, "--output-format")
+  table.insert(args, "stream-json")
   
   -- Check if user has configured MCP and wants diff preview
   if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
@@ -211,8 +230,9 @@ function M.send_to_claude(prompt, opts)
   end
   
   -- Don't trigger on_start immediately - wait for actual output
+  local line_buffer = ""
   
-  -- Read stdout line by line for streaming
+  -- Read stdout for streaming
   stdout:read_start(function(err, data)
     if err then
       vim.schedule(function()
@@ -225,9 +245,25 @@ function M.send_to_claude(prompt, opts)
       -- Accumulate output
       output_buffer = output_buffer .. data
       
-      -- For plain text mode (-p flag), stream directly
-      -- But still check for potential JSON events mixed in
-      local lines = vim.split(data, "\n", { plain = true })
+      -- Trigger on_start if not already triggered
+      if not callbacks._start_triggered and callbacks.on_start then
+        callbacks._start_triggered = true
+        vim.schedule(function()
+          callbacks.on_start()
+        end)
+      end
+      
+      -- Add to line buffer
+      line_buffer = line_buffer .. data
+      
+      -- Process complete lines
+      local lines = {}
+      local last_newline = line_buffer:find("\n[^\n]*$")
+      if last_newline then
+        local complete_data = line_buffer:sub(1, last_newline - 1)
+        line_buffer = line_buffer:sub(last_newline + 1)
+        lines = vim.split(complete_data, "\n", { plain = true })
+      end
       
       for _, line in ipairs(lines) do
         if line ~= "" then
@@ -239,13 +275,6 @@ function M.send_to_claude(prompt, opts)
             end)
           else
             -- Plain text - stream it
-            if not callbacks._start_triggered and callbacks.on_start then
-              callbacks._start_triggered = true
-              vim.schedule(function()
-                callbacks.on_start()
-              end)
-            end
-            
             if callbacks.on_stream then
               vim.schedule(function()
                 callbacks.on_stream(line .. "\n")
@@ -253,6 +282,13 @@ function M.send_to_claude(prompt, opts)
             end
           end
         end
+      end
+      
+      -- Also check if we have accumulated non-JSON text without newlines
+      if not data:match("\n") and not data:match("^%s*{") and callbacks.on_stream then
+        vim.schedule(function()
+          callbacks.on_stream(data)
+        end)
       end
     end
   end)

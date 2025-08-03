@@ -158,9 +158,9 @@ end
 
 function M.start_streaming()
   content_accumulator = ""
-  if not progress_win or not vim.api.nvim_win_is_valid(progress_win) then
-    M.show_progress("🤔 Claude is thinking...")
-  end
+  -- Create the streaming popup immediately
+  M._create_streaming_popup()
+  M.show_progress("🤔 Claude is thinking...")
 end
 
 function M.stream_content(text)
@@ -181,7 +181,8 @@ function M.stream_content(text)
     if popup_win and vim.api.nvim_win_is_valid(popup_win) then
       local line_count = #lines
       if line_count > 0 then
-        vim.api.nvim_win_set_cursor(popup_win, {line_count, 0})
+        -- Use pcall to handle any cursor setting errors
+        pcall(vim.api.nvim_win_set_cursor, popup_win, {line_count, 0})
       end
     end
   end
