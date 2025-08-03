@@ -147,6 +147,9 @@ function M.send_to_claude(prompt, opts)
   table.insert(args, "--output-format")
   table.insert(args, "stream-json")
   
+  -- Add verbose flag (required when using stream-json with -p)
+  table.insert(args, "--verbose")
+  
   -- Check if user has configured MCP and wants diff preview
   if config.mcp and config.mcp.enabled and config.bridge and config.bridge.show_diff then
     -- Check if CLAUDE.md has diff instructions
