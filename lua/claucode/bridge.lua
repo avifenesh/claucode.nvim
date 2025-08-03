@@ -34,15 +34,10 @@ local function parse_streaming_json(line)
     return 
   end
   
-  -- Debug logging - log all events to understand what's happening
+  -- Only log non-routine events for debugging
   vim.schedule(function()
-    if result.type then
+    if result.type and result.type ~= "assistant" and result.type ~= "text" and result.type ~= "content" then
       vim.notify("Claude event: " .. result.type .. (result.subtype and ("/" .. result.subtype) or ""), vim.log.levels.DEBUG)
-      
-      -- Log full event for debugging
-      if result.type ~= "assistant" or vim.log.levels.DEBUG then
-        vim.notify("Event details: " .. vim.inspect(result):sub(1, 500), vim.log.levels.DEBUG)
-      end
     end
   end)
   
@@ -74,13 +69,12 @@ local function parse_streaming_json(line)
         if content.type == "text" and content.text and callbacks.on_stream then
           callbacks.on_stream(content.text)
         elseif content.type == "tool_use" then
-          -- Log tool use for debugging
-          vim.schedule(function()
-            vim.notify("Tool use: " .. (content.name or "unknown"), vim.log.levels.DEBUG)
-            if content.input then
-              vim.notify("Tool input: " .. vim.inspect(content.input), vim.log.levels.DEBUG)
-            end
-          end)
+          -- Only log non-standard tool use for debugging
+          if content.name and not content.name:match("^(Edit|Write|Read|Bash)$") then
+            vim.schedule(function()
+              vim.notify("Tool use: " .. content.name, vim.log.levels.DEBUG)
+            end)
+          end
           
           if callbacks.on_tool_use then
             callbacks.on_tool_use(content)
@@ -99,9 +93,6 @@ local function parse_streaming_json(line)
     end
   elseif result.type == "permission_request" then
     -- Handle permission requests based on MCP configuration
-    vim.schedule(function()
-      vim.notify("Permission request for tool: " .. (result.tool_name or "unknown"), vim.log.levels.DEBUG)
-    end)
     
     local config = require("claucode").get_config()
     -- Only auto-approve if MCP is NOT handling diffs
@@ -162,10 +153,7 @@ function M.send_to_claude(prompt, opts)
     table.insert(args, prompt)
   end
   
-  -- Debug: Log the full command
-  vim.schedule(function()
-    vim.notify("Claude command: " .. config.command .. " " .. table.concat(args, " "), vim.log.levels.DEBUG)
-  end)
+  -- Command logging removed - too verbose for normal use
   
   -- Reset output buffer and callbacks state
   output_buffer = ""

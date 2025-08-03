@@ -33,7 +33,7 @@ function M.add_mcp_server(callback)
   -- Check if already added
   is_mcp_server_added_async(function(is_added)
     if is_added then
-      vim.notify("Claucode MCP server already configured in Claude", vim.log.levels.DEBUG)
+      -- MCP server already configured - silent
       if callback then callback(true) end
       return
     end
@@ -110,8 +110,7 @@ function M._do_add_mcp_server(mcp_server, callback)
   -- Add the MCP server using claude mcp add command
   local claude_cmd = get_claude_command()
   
-  vim.notify("Adding Claucode MCP server to Claude configuration...", vim.log.levels.DEBUG)
-  vim.notify("Using claude command: " .. claude_cmd, vim.log.levels.DEBUG)
+  -- Adding MCP server to Claude configuration
   
   local output = ""
   vim.fn.jobstart({claude_cmd, "mcp", "add", "--scope", "user", "claucode-nvim", "node", mcp_server}, {
@@ -137,7 +136,7 @@ function M._do_add_mcp_server(mcp_server, callback)
         
         if callback then callback(false) end
       else
-        vim.notify("Claucode MCP server successfully added!", vim.log.levels.DEBUG)
+        -- MCP server added successfully
         if callback then callback(true) end
       end
     end
@@ -166,7 +165,7 @@ function M.setup(config)
     vim.defer_fn(function()
       M.add_mcp_server(function(success)
         if success then
-          vim.notify("Claucode MCP server setup complete", vim.log.levels.DEBUG)
+          -- MCP server setup complete
         end
       end)
     end, 1000)

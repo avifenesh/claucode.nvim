@@ -71,10 +71,7 @@ function M.claude(args, from_visual)
     prompt = prompt .. "\n\nCurrent file (" .. current_file .. "):\n```" .. file_type .. "\n" .. file_content .. "\n```"
   end
   
-  -- Only show this for non-empty prompts
-  if prompt and prompt ~= "" then
-    vim.notify("Sending to Claude: " .. (prompt:sub(1, 50) .. (prompt:len() > 50 and "..." or "")), vim.log.levels.DEBUG)
-  end
+  -- Prompt validation complete
   
   -- Register streaming callbacks for real-time feedback
   local ui = require("claucode.ui")

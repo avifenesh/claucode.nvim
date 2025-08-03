@@ -39,7 +39,7 @@ local function build_mcp_server()
     return false
   end
   
-  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.DEBUG)
+  -- Building MCP server
   
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
@@ -63,7 +63,7 @@ local function build_mcp_server()
     return false
   end
   
-  vim.notify("MCP server built successfully!", vim.log.levels.DEBUG)
+  -- MCP server built successfully
   return true
 end
 
@@ -79,7 +79,7 @@ function M.build_async(config, callback)
     return
   end
   
-  vim.notify("Building MCP server in: " .. mcp_dir, vim.log.levels.DEBUG)
+  -- Building MCP server
   
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
@@ -104,7 +104,7 @@ function M.build_async(config, callback)
             vim.notify("Failed to build MCP server", vim.log.levels.ERROR)
             if callback then callback(false) end
           else
-            vim.notify("MCP server built successfully!", vim.log.levels.DEBUG)
+            -- MCP server built successfully
             if callback then callback(true) end
           end
         end
@@ -304,8 +304,7 @@ function M.show_diff_window(hash, filepath, original, modified)
   
   -- Response function
   local function respond(approved)
-    -- Show feedback
-    vim.notify(approved and "Accepting changes..." or "Rejecting changes...", vim.log.levels.DEBUG)
+    -- Processing diff decision silently
     
     -- Write response to file
     local dir = get_communication_dir()
@@ -331,8 +330,7 @@ function M.show_diff_window(hash, filepath, original, modified)
     end
     pending_diffs[hash] = nil
     
-    -- Log the response
-    vim.notify("Diff " .. (approved and "accepted" or "rejected") .. " for " .. filepath, vim.log.levels.DEBUG)
+    -- Diff response processed
   end
   
   -- Set up keymaps for all buffers
@@ -362,7 +360,7 @@ function M.setup(config)
   -- Check if MCP server is available
   local mcp_server = get_mcp_server_path()
   if not mcp_server and config.mcp and config.mcp.auto_build then
-    vim.notify("MCP server not found, attempting auto-build...", vim.log.levels.DEBUG)
+    -- Auto-building MCP server
     -- Try to build the MCP server
     if build_mcp_server() then
       -- Check again after building
@@ -378,7 +376,7 @@ function M.setup(config)
   -- Start diff watcher if show_diff is enabled
   if config.bridge and config.bridge.show_diff then
     M.start_diff_watcher()
-    vim.notify("Claucode diff watcher started", vim.log.levels.DEBUG)
+    -- Diff watcher started
   end
 end
 
