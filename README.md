@@ -6,57 +6,48 @@ A Neovim bridge plugin for [Claude Code CLI](https://claude.ai/code), providing 
 
 ## What's This?
 
-A lightweight bridge connecting Neovim with Claude Code CLI. Built to enhance your coding workflow with AI assistance directly in your editor.
+A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bringing AI assistance directly into your coding workflow.
 
 ## Features
 
 - 🚀 Send prompts to Claude directly from Neovim
-- 📁 Automatic file change detection and buffer reloading
-- 🔍 Visual selection support for targeted assistance
-- 📝 File context inclusion with prompts
-- 🔄 Real-time file watching for Claude's modifications
-- 🖥️ Terminal integration - Run Claude in a split terminal
-- 💬 Popup windows for Claude responses with streaming progress
-- 🔍 MCP-powered side-by-side diff preview - See changes before they're applied
+- 📁 Auto-reload buffers when Claude modifies files
+- 🔍 Visual selection support for context-aware assistance
+- 📝 Include file context with your prompts
+- 🔄 Real-time file watching for external changes
+- 🖥️ Terminal integration with split view
+- 💬 Streaming responses in popup windows
+- 🎯 MCP-powered diff preview - Review changes before applying
 
 ## Getting Started
 
-### Before You Begin
+### Prerequisites
 
-Make sure you have:
-- Neovim 0.5+
-- [Claude Code CLI](https://claude.ai/code) installed (`npm install -g @anthropic-ai/claude-code`)
-- Your `ANTHROPIC_API_KEY` environment variable set
+- Neovim 0.5 or later
+- [Claude Code CLI](https://claude.ai/code) (`npm install -g @anthropic-ai/claude-code`)
+- `ANTHROPIC_API_KEY` environment variable
 
 ### Installation
 
-Pick your favorite plugin manager:
-
-**lazy.nvim** (recommended)
+**Using lazy.nvim** (recommended)
 ```lua
 {
   "avifenesh/claucode.nvim",
   config = function()
-    require("claucode").setup({
-      -- your configuration (or use defaults)
-    })
+    require("claucode").setup()
   end,
 }
 ```
 
-**packer.nvim**
+**Using packer.nvim**
 ```lua
 use {
   "avifenesh/claucode.nvim",
   config = function()
-    require("claucode").setup({
-      -- your configuration
-    })
+    require("claucode").setup()
   end
 }
 ```
-
-Simple setup with minimal dependencies.
 
 ## Configuration
 
@@ -227,40 +218,42 @@ With default prefix `<leader>ai`:
 - 🎯 Focused on doing one thing well
 
 **This plugin is NOT:**
-- 🤖 An AI implementation (that's Claude's job)
-- 🔮 A Copilot replacement
-- 🎨 A feature-packed AI suite
+- 🤖 An AI implementation (Claude handles that)
+- 🔮 A Copilot-style autocomplete tool
+- 🎨 A comprehensive AI suite
 
-It's a bridge. Claude does the AI stuff, this plugin helps you talk to it from Neovim.
+It's a simple bridge - Claude does the AI work, this plugin handles the communication.
 
 ## Troubleshooting
 
-### Commands not working
+### Claude commands not working?
 
-1. Ensure Claude Code CLI is installed: `npm install -g @anthropic-ai/claude-code`
-2. Verify API key is set: `echo $ANTHROPIC_API_KEY`
-3. Test Claude directly: `claude -p "test"`
-4. **If "Claude Code CLI not found" error**:
-   - Find where claude is installed: `which claude` in your terminal
-   - Update your config with the full path:
-     ```lua
-     require("claucode").setup({
-       command = "/full/path/to/claude",  -- e.g., "/home/user/.claude/local/claude"
-     })
-     ```
-   - Or ensure Neovim inherits your PATH by starting it from your shell
+1. **Check installation**: `npm install -g @anthropic-ai/claude-code`
+2. **Verify API key**: `echo $ANTHROPIC_API_KEY`
+3. **Test Claude directly**: `claude -p "test"`
 
-### File watcher issues
+### "Claude Code CLI not found" error?
 
-- Check if files match ignore patterns
-- Ensure proper file permissions
-- Try manual reload with `:ClaudeStop` then `:ClaudeStart`
+Find Claude's location: `which claude`
 
-### Performance
+Then update your config:
+```lua
+require("claucode").setup({
+  command = "/path/to/claude",  -- e.g., "/home/user/.claude/local/claude"
+})
+```
 
-- Adjust `watcher.debounce` for faster/slower file detection
-- Increase `bridge.timeout` for longer operations
-- Check `bridge.max_output` if responses are truncated
+### File watcher issues?
+
+- Check ignore patterns in your config
+- Verify file permissions
+- Restart watcher: `:ClaudeStop` → `:ClaudeStart`
+
+### Performance tips
+
+- Adjust `watcher.debounce` (default: 100ms)
+- Increase `bridge.timeout` for long operations
+- Raise `bridge.max_output` if responses get cut off
 
 ## Contributing
 
@@ -268,11 +261,11 @@ Issues and PRs welcome! This is a community project.
 
 ## Philosophy
 
-Simple Unix philosophy: do one thing well. It's a bridge, not a replacement for Claude Code.
+Built on the Unix principle: do one thing well.
 
 - **Lightweight** - Minimal dependencies, fast startup
-- **Focused** - Just the bridge functionality
-- **Reliable** - Stable core functionality
+- **Focused** - Pure bridge functionality
+- **Reliable** - Stable core features
 
 ## License
 
