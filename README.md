@@ -18,7 +18,7 @@ A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bring
 - 🖥️ Terminal integration with split view
 - 💬 Streaming responses in popup windows
 - 🎯 MCP-powered diff preview - Review changes before applying
-
+<img width="1000" height="900" alt="image" src="https://github.com/user-attachments/assets/95ed7731-dd22-4d96-a63c-bf9136ab368b" />
 ## Getting Started
 
 ### Prerequisites
