@@ -15,17 +15,24 @@ A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bring
 - 🔍 Visual selection support for context-aware assistance
 - 📝 Include file context with your prompts
 - 🔄 Real-time file watching for external changes
-- 🖥️ Terminal integration with split view
+- 🖥️ Terminal integration with split view  
 - 💬 Streaming responses in popup windows
 - 🎯 MCP-powered diff preview - Review changes before applying
 <img width="1000" height="900" alt="image" src="https://github.com/user-attachments/assets/95ed7731-dd22-4d96-a63c-bf9136ab368b" />
+
+<img width="1000" height="671" alt="Screenshot 2025-08-04 at 6 31 51" src="https://github.com/user-attachments/assets/6dec7b8c-60a0-4d07-b298-e78168c6d8c8" />
+
+<img width="1000" height="272" alt="Screenshot 2025-08-04 at 6 33 54" src="https://github.com/user-attachments/assets/7421b2ce-4051-4f34-b305-fdc6136be874" />
+
+<img width="1000" height="900" alt="Screenshot 2025-08-04 at 6 38 33" src="https://github.com/user-attachments/assets/a9c189e4-b1e8-4fcf-a09f-994185f60f68" />
+
 ## Getting Started
 
 ### Prerequisites
 
 - Neovim 0.5 or later
 - [Claude Code CLI](https://claude.ai/code) (`npm install -g @anthropic-ai/claude-code`)
-- `ANTHROPIC_API_KEY` environment variable
+- `ANTHROPIC_API_KEY` environment variable or the app conncted using other login method
 
 ### Installation
 
