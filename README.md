@@ -170,8 +170,13 @@ You can toggle diff preview functionality at any time without restarting Neovim 
 This command will:
 1. Toggle the diff preview on/off
 2. Start/stop the diff watcher process
-3. Automatically add/remove instructions from CLAUDE.md
-4. Show a notification of the current state
+3. Add/remove the MCP server from Claude's configuration
+4. Automatically add/remove instructions from CLAUDE.md
+5. Show a notification of the current state
+
+**Important:** After toggling, you must restart any active Claude terminal sessions for the changes to take full effect. This is because:
+- Claude loads CLAUDE.md instructions at session start
+- MCP servers are registered/unregistered globally but active sessions keep their initial configuration
 
 **Note:** Diff preview requires `mcp.enabled = true` in your configuration. If MCP is disabled, the toggle command will show a warning.
 

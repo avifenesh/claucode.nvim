@@ -166,8 +166,11 @@ COMMANDS                                                    *claucode-commands*
     Toggle diff preview on/off. This command:
     - Toggles the show_diff configuration
     - Starts/stops the diff watcher process
+    - Adds/removes MCP server from Claude configuration
     - Automatically adds/removes instructions from CLAUDE.md
     - Shows a notification of the current state
+    
+    IMPORTANT: Restart Claude terminal sessions after toggling for full effect.
 
 ==============================================================================
 KEYMAPS                                                      *claucode-keymaps*
@@ -433,33 +436,139 @@ Without gh installed, Claude uses GitHub API or MCP server.
 ==============================================================================
 BEST PRACTICES                                      *claucode-best-practices*
 
-1. Use /clear Often:~
-   Clear conversations when starting new tasks to avoid context pollution.
+Getting Started:~                                  *claucode-getting-started*
+
+1. Set up your environment:~
+>bash
+    # Install Claude Code CLI
+    npm install -g @anthropic-ai/claude-code
+    
+    # Set API key
+    export ANTHROPIC_API_KEY="your-key"
+    
+    # Verify installation
+    claude --version
+<
+
+2. Initialize your project:~
+>vim
+    :ClaudeTerminal
+    /init
+<
+
+3. Enable diff preview (recommended):~
+>lua
+    require("claucode").setup({
+      bridge = { show_diff = true }
+    })
+<
+
+Workflow Tips:~                                         *claucode-workflow*
+
+1. Use /compact Often:~
+   Reset conversations at natural breakpoints to maintain performance.
+   - After completing a feature
+   - Before starting new tasks
+   - When context gets large
 
 2. Maintain CLAUDE.md:~
-   Keep project memory updated with architecture changes and decisions.
+   Keep project memory updated with:
+   - Architecture changes
+   - Coding conventions
+   - Important decisions
+   - Development patterns
 
 3. Create Custom Commands:~
-   Automate repetitive workflows with custom slash commands.
+   Automate repetitive workflows:
+>bash
+    # Create command
+    mkdir -p .claude/commands
+    echo "Review: \$ARGUMENTS" > .claude/commands/review.md
+    
+    # Use in session
+    /review src/main.js
+<
 
 4. Use Sub-agents for Large Tasks:~
-   Let Claude parallelize work for faster completion.
+   Let Claude parallelize work:
+   - Large refactoring projects
+   - Multi-file updates
+   - Test generation across modules
 
-5. Enable Terminal Bell:~
->
+5. Enable Notifications:~
+>bash
+    # Terminal bell for long tasks
     claude config set --global preferredNotifChannel terminal_bell
+    
+    # Desktop notifications (macOS/Linux)
+    claude config set --global preferredNotifChannel desktop
 <
-   Get notified when Claude completes long tasks.
 
-6. Version Control Commands:~
-   Check .claude/commands/ into git for team consistency.
+6. Version Control Integration:~
+   - Check .claude/commands/ into git
+   - Share CLAUDE.md with team
+   - Document custom workflows
 
-7. Use Appropriate Models:~
-   - Opus: Deep thinking, complex refactoring
-   - Sonnet: Fast responses, quick fixes
+7. Model Selection Strategy:~
+   Choose the right model for the task:
+   
+   *Opus* (claude-opus-4-1-20250805):
+   - Complex architectural decisions
+   - Large-scale refactoring
+   - Deep code analysis
+   - Multi-step problem solving
+   
+   *Sonnet* (claude-sonnet-4-20250514):
+   - Quick bug fixes
+   - Simple code generation
+   - Documentation updates
+   - Fast iterations
 
-8. Leverage MCP Servers:~
-   Connect specialized tools through Model Context Protocol.
+8. MCP Server Best Practices:~
+   - Enable diff preview for safety
+   - Use file-based MCP for reliability
+   - Keep servers updated
+   - Monitor server logs when debugging
+
+Performance Optimization:~                        *claucode-performance*
+
+1. Context Management:~
+   - Use /compact regularly
+   - Clear old sessions periodically
+   - Break large tasks into chunks
+
+2. File Watcher Tuning:~
+>lua
+    watcher = {
+      debounce = 200,  -- Increase for slower systems
+      ignore_patterns = {
+        -- Add project-specific patterns
+        "build/", "dist/", "*.log"
+      }
+    }
+<
+
+3. Memory Usage:~
+   - Monitor with /cost command
+   - Clean ~/.claude/sessions/ periodically
+   - Use --max-turns to limit conversation length
+
+Security Considerations:~                           *claucode-security*
+
+1. API Key Management:~
+   - Never commit API keys to version control
+   - Use environment variables
+   - Consider using a key manager
+
+2. Permission Control:~
+   - Review permission prompts carefully
+   - Avoid --dangerously-skip-permissions in production
+   - Use diff preview for file modifications
+
+3. MCP Server Security:~
+   - Keep MCP servers updated
+   - Review server permissions
+   - Use trusted MCP servers only
 
 ==============================================================================
 TROUBLESHOOTING                                      *claucode-troubleshooting*
