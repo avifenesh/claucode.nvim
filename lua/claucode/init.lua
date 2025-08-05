@@ -188,24 +188,7 @@ function M.setup(user_config)
 		desc = "Send a prompt to Claude Code CLI",
 	})
 
-	vim.api.nvim_create_user_command("ClaudeStop", function()
-		require("claucode.bridge").stop()
-		require("claucode.watcher").stop()
-	end, {
-		desc = "Stop Claude Code bridge and file watcher",
-	})
 
-	vim.api.nvim_create_user_command("ClaudeStart", function()
-		require("claucode.watcher").start(M.config)
-	end, {
-		desc = "Start Claude Code file watcher",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeReview", function()
-		require("claucode.review").show_pending_changes()
-	end, {
-		desc = "Review pending changes from Claude",
-	})
 
 	vim.api.nvim_create_user_command("ClaudeTerminal", function(opts)
 		require("claucode.terminal").open_claude_terminal(opts.args)
@@ -220,53 +203,30 @@ function M.setup(user_config)
 		desc = "Toggle Claude terminal",
 	})
 
-	vim.api.nvim_create_user_command("ClaudeTerminalSend", function(opts)
-		require("claucode.terminal").send_to_terminal(opts.args)
-	end, {
-		nargs = "+",
-		desc = "Send text to Claude terminal",
-	})
 
-	vim.api.nvim_create_user_command("ClaudeDiffInstructions", function()
-		require("claucode.claude_md").toggle_diff_instructions()
-	end, {
-		desc = "Toggle Neovim diff preview instructions in CLAUDE.md",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeMCPAdd", function()
-		require("claucode.mcp_manager").add_mcp_server()
-	end, {
-		desc = "Add Claucode MCP server to Claude configuration",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeMCPRemove", function()
-		require("claucode.mcp_manager").remove_mcp_server()
-	end, {
-		desc = "Remove Claucode MCP server from Claude configuration",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeDiffStatus", function()
-		local mcp = require("claucode.mcp")
-		if mcp.diff_watcher_timer then
-			-- Removed startup notification to reduce noise
-		else
-			vim.notify("Claucode: Diff preview is inactive", vim.log.levels.INFO)
-		end
-	end, {
-		desc = "Show Claucode diff watcher status",
-	})
 
 	vim.api.nvim_create_user_command("ClaudeDiffToggle", function()
-		local mcp = require("claucode.mcp")
-		if mcp.diff_watcher_timer then
-			mcp.stop_diff_watcher()
-			vim.notify("Claucode: Diff preview disabled", vim.log.levels.INFO)
+		-- Toggle the show_diff configuration
+		M.config.bridge.show_diff = not M.config.bridge.show_diff
+		
+		if M.config.bridge.show_diff then
+			-- Enable diff preview
+			if M.config.mcp.enabled then
+				require("claucode.mcp").start_diff_watcher()
+				require("claucode.claude_md").add_diff_instructions()
+				vim.notify("Claucode: Diff preview enabled", vim.log.levels.INFO)
+			else
+				vim.notify("Claucode: Cannot enable diff preview - MCP is disabled in config", vim.log.levels.WARN)
+				M.config.bridge.show_diff = false
+			end
 		else
-			mcp.start_diff_watcher()
-			vim.notify("Claucode: Diff preview enabled", vim.log.levels.INFO)
+			-- Disable diff preview
+			require("claucode.mcp").stop_diff_watcher()
+			require("claucode.claude_md").remove_diff_instructions()
+			vim.notify("Claucode: Diff preview disabled", vim.log.levels.INFO)
 		end
 	end, {
-		desc = "Toggle Claucode diff watcher",
+		desc = "Toggle Claucode diff preview on/off",
 	})
 end
 

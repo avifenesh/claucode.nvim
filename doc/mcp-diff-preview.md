@@ -14,16 +14,12 @@ Since the diff preview uses file-based communication, if you have multiple Neovi
 
 ### Best Practices:
 
-1. **Use `:ClaudeDiffStatus`** to check which instance has the watcher running
-2. **Use `:ClaudeDiffToggle`** to start/stop the watcher in a specific instance
-3. **Only run the watcher in one instance** to avoid confusion
+1. **Use `:ClaudeDiffToggle`** to control the diff preview feature
+2. **Only run the watcher in one instance** to avoid confusion
 
 ### Commands:
 
-- `:ClaudeDiffStatus` - Check if diff watcher is running in current instance
-- `:ClaudeDiffToggle` - Start/stop diff watcher in current instance
-- `:ClaudeMCPAdd` - Add MCP server to Claude configuration
-- `:ClaudeMCPRemove` - Remove MCP server from Claude configuration
+- `:ClaudeDiffToggle` - Toggle diff preview on/off (manages watcher and CLAUDE.md automatically)
 
 ### In the Diff Window:
 

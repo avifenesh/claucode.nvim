@@ -153,28 +153,35 @@ When diff preview is enabled, the plugin automatically adds instructions to your
 - This happens silently in the background when you open Neovim in a project
 - To disable automatic CLAUDE.md updates, set `bridge.auto_claude_md = false`
 
-**Manual control:**
-- Use `:ClaudeDiffInstructions` to manually toggle the diff preview instructions in CLAUDE.md
-
 **Benefits:**
 - Works in both `:Claude` commands and `:ClaudeTerminal` automatically
 - No need to remember flags or special commands
 - Project-specific configuration that can be committed to version control
 - Team members get the same behavior automatically
 
+### Controlling Diff Preview at Runtime
+
+You can toggle diff preview functionality at any time without restarting Neovim using:
+
+```vim
+:ClaudeDiffToggle
+```
+
+This command will:
+1. Toggle the diff preview on/off
+2. Start/stop the diff watcher process
+3. Automatically add/remove instructions from CLAUDE.md
+4. Show a notification of the current state
+
+**Note:** Diff preview requires `mcp.enabled = true` in your configuration. If MCP is disabled, the toggle command will show a warning.
+
 ### Commands
 
 - `:Claude <prompt>` - Send a prompt to Claude (shows response in popup)
 - `:Claude --file <prompt>` - Include current file context with prompt
-- `:ClaudeStop` - Stop Claude Code bridge and file watcher
-- `:ClaudeStart` - Start file watcher
-- `:ClaudeReview` - Review pending changes from Claude
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
-- `:ClaudeTerminalSend <text>` - Send text to Claude terminal
-- `:ClaudeDiffInstructions` - Toggle Neovim diff preview instructions in CLAUDE.md
-- `:ClaudeMCPAdd` - Add Claucode MCP server to Claude configuration
-- `:ClaudeMCPRemove` - Remove Claucode MCP server from Claude configuration
+- `:ClaudeDiffToggle` - Toggle diff preview on/off
 
 ### Default Keymaps
 
@@ -186,7 +193,6 @@ With default prefix `<leader>ai`:
 - `<leader>aie` - Explain code (selection or file)
 - `<leader>aix` - Fix issues in code
 - `<leader>ait` - Generate tests
-- `<leader>air` - Review pending changes
 - `<leader>aio` - Open Claude terminal
 - `<leader>aiT` - Toggle Claude terminal
 
@@ -254,7 +260,7 @@ require("claucode").setup({
 
 - Check ignore patterns in your config
 - Verify file permissions
-- Restart watcher: `:ClaudeStop` → `:ClaudeStart`
+- The watcher auto-starts with the plugin
 
 ### Performance tips
 

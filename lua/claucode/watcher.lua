@@ -99,10 +99,6 @@ local function handle_file_change(filepath, config)
       if current_mtime and current_mtime ~= last_mtime then
         file_timestamps[filepath] = current_mtime
         reload_buffer_if_changed(filepath)
-        
-        -- Trigger review module to track this change
-        local review = require("claucode.review")
-        review.add_changed_file(filepath)
       end
     end)
   end)

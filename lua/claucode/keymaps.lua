@@ -31,17 +31,7 @@ function M.setup(config)
     desc = "Claude generate tests",
   })
   
-  map("n", prefix .. "r", "<cmd>ClaudeReview<CR>", {
-    desc = "Claude review changes",
-  })
-  
-  map("n", prefix .. "s", "<cmd>ClaudeStop<CR>", {
-    desc = "Claude stop",
-  })
-  
-  map("n", prefix .. "S", "<cmd>ClaudeStart<CR>", {
-    desc = "Claude start watcher",
-  })
+
   
   map("n", prefix .. "a", "<cmd>lua require('claucode.commands').claude_complete()<CR>", {
     desc = "Claude complete at cursor",
@@ -90,9 +80,7 @@ function M.setup(config)
         { prefix .. "e", desc = "Explain", mode = "n" },
         { prefix .. "x", desc = "Fix", mode = "n" },
         { prefix .. "t", desc = "Generate Tests", mode = "n" },
-        { prefix .. "r", desc = "Review Changes", mode = "n" },
-        { prefix .. "s", desc = "Stop", mode = "n" },
-        { prefix .. "S", desc = "Start Watcher", mode = "n" },
+
         { prefix .. "a", desc = "Complete at Cursor", mode = "n" },
         { prefix .. "o", desc = "Open Terminal", mode = "n" },
         { prefix .. "T", desc = "Toggle Terminal", mode = "n" },
@@ -114,9 +102,7 @@ function M.setup(config)
           e = { "<cmd>lua require('claucode.commands').claude_explain()<CR>", "Explain" },
           x = { "<cmd>lua require('claucode.commands').claude_fix()<CR>", "Fix" },
           t = { "<cmd>lua require('claucode.commands').claude_test()<CR>", "Generate Tests" },
-          r = { "<cmd>ClaudeReview<CR>", "Review Changes" },
-          s = { "<cmd>ClaudeStop<CR>", "Stop" },
-          S = { "<cmd>ClaudeStart<CR>", "Start Watcher" },
+
           a = { "<cmd>lua require('claucode.commands').claude_complete()<CR>", "Complete at Cursor" },
           o = { "<cmd>ClaudeTerminal<CR>", "Open Terminal" },
           T = { "<cmd>ClaudeTerminalToggle<CR>", "Toggle Terminal" },

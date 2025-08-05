@@ -11,7 +11,12 @@ CONTENTS                                                    *claucode-contents*
     6. Keymaps ..................................... |claucode-keymaps|
     7. Functions ................................... |claucode-functions|
     8. MCP Integration ............................. |claucode-mcp|
-    9. FAQ ......................................... |claucode-faq|
+    9. Claude Code CLI Reference ................... |claucode-cli|
+    10. Slash Commands ............................. |claucode-slash|
+    11. Advanced Usage ............................. |claucode-advanced|
+    12. Best Practices ............................. |claucode-best-practices|
+    13. Troubleshooting ............................ |claucode-troubleshooting|
+    14. FAQ ......................................... |claucode-faq|
 
 ==============================================================================
 INTRODUCTION                                            *claucode-introduction*
@@ -146,15 +151,6 @@ COMMANDS                                                    *claucode-commands*
     - --file or -f: Include current file context
     Shows response in a popup window with real-time streaming.
 
-:ClaudeReview                                                   *:ClaudeReview*
-    Review pending changes from Claude with diff preview.
-
-:ClaudeStop                                                       *:ClaudeStop*
-    Stop Claude Code bridge and file watcher.
-
-:ClaudeStart                                                     *:ClaudeStart*
-    Start Claude Code file watcher.
-
 :ClaudeTerminal [{args}]                                     *:ClaudeTerminal*
     Open Claude in a terminal split. Optional CLI arguments can be passed.
     When show_diff = true in config, diff preview will be enabled automatically.
@@ -166,23 +162,12 @@ COMMANDS                                                    *claucode-commands*
 :ClaudeTerminalToggle                                  *:ClaudeTerminalToggle*
     Toggle the Claude terminal window open/closed.
 
-:ClaudeTerminalSend {text}                              *:ClaudeTerminalSend*
-    Send text to the Claude terminal.
-
-:ClaudeDiffInstructions                              *:ClaudeDiffInstructions*
-    Toggle Neovim diff preview instructions in CLAUDE.md file.
-
-:ClaudeMCPAdd                                                 *:ClaudeMCPAdd*
-    Add Claucode MCP server to Claude configuration using `claude mcp add`.
-
-:ClaudeMCPRemove                                           *:ClaudeMCPRemove*
-    Remove Claucode MCP server from Claude configuration.
-
-:ClaudeDiffStatus                                           *:ClaudeDiffStatus*
-    Show current diff watcher status (active/inactive).
-
 :ClaudeDiffToggle                                           *:ClaudeDiffToggle*
-    Toggle the diff watcher on/off.
+    Toggle diff preview on/off. This command:
+    - Toggles the show_diff configuration
+    - Starts/stops the diff watcher process
+    - Automatically adds/removes instructions from CLAUDE.md
+    - Shows a notification of the current state
 
 ==============================================================================
 KEYMAPS                                                      *claucode-keymaps*
@@ -194,9 +179,6 @@ Default keymaps use <leader>ai prefix (configurable). In normal mode:
 <leader>aie    Explain code (selection or file)
 <leader>aix    Fix issues in code
 <leader>ait    Generate tests
-<leader>air    Review pending changes
-<leader>ais    Stop Claude
-<leader>aiS    Start watcher
 <leader>aia    Complete at cursor
 <leader>aio    Open Claude terminal
 <leader>aiT    Toggle Claude terminal
@@ -220,35 +202,26 @@ require("claucode").get_config()                         *claucode.get_config()*
 require("claucode.bridge").send_to_claude(prompt, opts)
     Send a prompt to Claude Code CLI. Supports streaming callbacks.
 
-require("claucode.bridge").stop()
-    Stop the Claude bridge.
-
-require("claucode.watcher").start(config)
-    Start the file watcher.
-
-require("claucode.watcher").stop()
-    Stop the file watcher.
-
-require("claucode.review").show_pending_changes()
-    Show pending changes in a review window.
-
 require("claucode.terminal").open_claude_terminal(args)
     Open Claude in a terminal split with optional CLI arguments.
 
 require("claucode.terminal").toggle_claude_terminal()
     Toggle Claude terminal window.
 
-require("claucode.terminal").send_to_terminal(text)
-    Send text to Claude terminal.
-
 require("claucode.mcp").setup(config)
     Setup MCP server integration.
 
-require("claucode.mcp_manager").setup(config)
-    Manage MCP server in Claude configuration.
+require("claucode.mcp").start_diff_watcher()
+    Start the diff watcher process.
 
-require("claucode.claude_md").setup()
-    Setup automatic CLAUDE.md management for diff preview.
+require("claucode.mcp").stop_diff_watcher()
+    Stop the diff watcher process.
+
+require("claucode.claude_md").add_diff_instructions()
+    Add diff preview instructions to CLAUDE.md.
+
+require("claucode.claude_md").remove_diff_instructions()
+    Remove diff preview instructions from CLAUDE.md.
 
 ==============================================================================
 MCP INTEGRATION                                                  *claucode-mcp*
@@ -287,8 +260,257 @@ How it works:
 CLAUDE.md Integration:
 - When `show_diff = true`, instructions are auto-added to CLAUDE.md
 - This ensures Claude uses diff preview in both command and terminal mode
-- Use `:ClaudeDiffInstructions` to manually toggle instructions
+- The `:ClaudeDiffToggle` command manages this automatically
 - Set `bridge.auto_claude_md = false` to disable automatic updates
+
+==============================================================================
+CLAUDE CODE CLI REFERENCE                                       *claucode-cli*
+
+Claude Code is Anthropic's agentic coding tool that lives in your terminal.
+This section covers the CLI commands and flags you can use.
+
+Basic Usage:~
+    claude                      Start interactive REPL
+    claude "query"              Start REPL with initial prompt
+    claude -p "query"           Query via SDK and exit (headless mode)
+    claude -c                   Continue most recent conversation
+    claude update               Update to latest version
+    claude mcp                  Configure Model Context Protocol servers
+
+Command-Line Flags:~
+
+--add-dir {path...}                                       *claude-add-dir*
+    Add working directories to the session
+    Example: claude --add-dir ../apps ../lib
+
+--allowedTools {tools...}                            *claude-allowedTools*
+    Specify permitted tools for the session
+    Example: claude --allowedTools "Bash(git log:*)" "Read"
+
+--continue, -c                                           *claude-continue*
+    Continue the most recent conversation
+
+--dangerously-skip-permissions                              *claude-skip*
+    Skip permission prompts (use with caution!)
+
+--help                                                       *claude-help*
+    Show help information
+
+--max-turns {number}                                    *claude-max-turns*
+    Set maximum conversation turns
+
+--mcp-debug                                            *claude-mcp-debug*
+    Enable MCP debugging output
+
+--mcp-config {path}                                   *claude-mcp-config*
+    Path to MCP configuration file
+
+--model {model}                                            *claude-model*
+    Set Claude model for session
+    Aliases: sonnet, opus, claude-sonnet-4-20250514
+    Example: claude --model sonnet
+
+--output-format {format}                          *claude-output-format*
+    Set output format: text, json, stream-json
+    Example: claude -p "explain" --output-format json
+
+--permission-mode {mode}                         *claude-permission-mode*
+    Set permission mode (e.g., plan)
+
+--print, -p                                               *claude-print*
+    Print response without interactive mode
+    Example: claude -p "explain this function"
+
+--resume                                                  *claude-resume*
+    Resume the last session with full context
+
+--transport {type}                                     *claude-transport*
+    Set transport type (e.g., http)
+
+--verbose                                                *claude-verbose*
+    Enable detailed logging
+
+==============================================================================
+SLASH COMMANDS                                                *claucode-slash*
+
+Claude Code supports built-in slash commands and custom commands.
+
+Built-in Commands:~
+
+/init                                                        *claude-/init*
+    Initialize Claude for a project. Creates CLAUDE.md file with project
+    context, architecture, and conventions.
+
+/compact                                                  *claude-/compact*
+    Reset conversation while preserving CLAUDE.md. Use at natural
+    breakpoints (after completing features, before starting new ones).
+
+/help                                                        *claude-/help*
+    Show available commands and their descriptions.
+
+/clear                                                      *claude-/clear*
+    Clear the current conversation. Use when starting something new.
+
+/memory                                                    *claude-/memory*
+    View and edit Claude's memory for the project.
+
+/cost                                                        *claude-/cost*
+    Check memory usage and token costs.
+
+/hooks                                                      *claude-/hooks*
+    Configure hooks through interactive menu.
+
+/install-github-app                            *claude-/install-github-app*
+    Install GitHub integration for automatic PR reviews.
+
+Custom Slash Commands:~                              *claucode-custom-slash*
+
+Create custom commands by adding markdown files to .claude/commands/:
+>
+    mkdir -p .claude/commands
+    echo "Review this code: \$ARGUMENTS" > .claude/commands/review.md
+<
+
+The $ARGUMENTS keyword passes parameters from command invocation:
+>
+    /review "src/main.js"
+<
+
+Examples of custom commands:
+- /dev:code-review - Review code changes
+- /test:generate - Generate test cases
+- /deploy:prepare - Prepare for deployment
+- /debug:analyze - Analyze debug logs
+
+Custom commands can be version controlled and shared with your team.
+
+==============================================================================
+ADVANCED USAGE                                             *claucode-advanced*
+
+Headless Mode:~                                        *claucode-headless*
+Use Claude Code in non-interactive contexts like CI/CD:
+>
+    claude -p "review this PR" --output-format stream-json
+<
+
+Note: Headless mode doesn't persist between sessions.
+
+Plan Mode:~                                                *claucode-plan*
+Press Shift+Tab in terminal to activate plan mode. Claude creates a
+detailed plan before writing code. Review the plan, then let it execute.
+
+Sub-agents:~                                          *claucode-subagents*
+For large projects, Claude can use multiple sub-agents working in parallel:
+>
+    :ClaudeTerminal
+    > Use sub-agents to refactor the entire codebase
+<
+
+Project Memory (CLAUDE.md):~                              *claucode-memory*
+The CLAUDE.md file stores:
+- Project architecture and structure
+- Coding conventions and style guides
+- Dependencies and requirements
+- Important decisions and context
+
+Create with: /init or manually
+Location: Project root or ~/.claude/CLAUDE.md (global)
+
+Session Management:~                                    *claucode-sessions*
+- Start new session: claude
+- Continue last: claude -c
+- Resume with context: claude --resume
+- List sessions: Check ~/.claude/sessions/
+
+GitHub Integration:~                                     *claucode-github*
+Claude can use gh CLI for GitHub operations:
+- Create issues and PRs
+- Read PR comments
+- Review code changes
+
+Without gh installed, Claude uses GitHub API or MCP server.
+
+==============================================================================
+BEST PRACTICES                                      *claucode-best-practices*
+
+1. Use /clear Often:~
+   Clear conversations when starting new tasks to avoid context pollution.
+
+2. Maintain CLAUDE.md:~
+   Keep project memory updated with architecture changes and decisions.
+
+3. Create Custom Commands:~
+   Automate repetitive workflows with custom slash commands.
+
+4. Use Sub-agents for Large Tasks:~
+   Let Claude parallelize work for faster completion.
+
+5. Enable Terminal Bell:~
+>
+    claude config set --global preferredNotifChannel terminal_bell
+<
+   Get notified when Claude completes long tasks.
+
+6. Version Control Commands:~
+   Check .claude/commands/ into git for team consistency.
+
+7. Use Appropriate Models:~
+   - Opus: Deep thinking, complex refactoring
+   - Sonnet: Fast responses, quick fixes
+
+8. Leverage MCP Servers:~
+   Connect specialized tools through Model Context Protocol.
+
+==============================================================================
+TROUBLESHOOTING                                      *claucode-troubleshooting*
+
+Claude Code CLI Issues:~
+
+"command not found: claude"
+- Install: npm install -g @anthropic-ai/claude-code
+- Check PATH: which claude
+- Use full path in config
+
+"ANTHROPIC_API_KEY not set"
+- Export key: export ANTHROPIC_API_KEY="your-key"
+- Add to shell profile: ~/.bashrc or ~/.zshrc
+
+Permission Errors:
+- Use --dangerously-skip-permissions (carefully!)
+- Check file permissions: ls -la
+- Run with appropriate user privileges
+
+Context Limit Reached:
+- Use /compact to reset conversation
+- Break large tasks into smaller ones
+- Use sub-agents for parallel processing
+
+MCP Server Issues:
+- Enable debug: claude --mcp-debug
+- Check config: cat ~/.config/claude/config.json
+- Verify server installation
+
+Performance Issues:
+- Clear old sessions: rm -rf ~/.claude/sessions/old*
+- Use /compact regularly
+- Choose appropriate model for task
+
+Integration Problems:~
+
+Diff Preview Not Working:
+- Ensure mcp.enabled = true in config
+- Check MCP server built: ls mcp-server/build/
+- Toggle with :ClaudeDiffToggle
+
+File Watcher Issues:
+- Check ignore patterns in config
+- Verify file permissions
+- Look for errors in :messages
+
+Terminal Not Opening:
+- Verify Claude CLI installed
+- Check :echo executable('claude')
+- Try full path in config
 
 ==============================================================================
 FAQ                                                              *claucode-faq*
@@ -315,6 +537,21 @@ A: Find where claude is installed: `which claude` in terminal.
 Q: How do I enable diff preview?
 A: Set `bridge.show_diff = true` and `mcp.enabled = true` in your config.
    The MCP server will be built automatically if needed.
+
+Q: Can I use custom Claude models?
+A: Yes, use --model flag in :ClaudeTerminal or set in config.
+
+Q: How do I create project-specific commands?
+A: Add markdown files to .claude/commands/ in your project.
+
+Q: What's the difference between -c and --resume?
+A: -c continues conversation, --resume includes full context restoration.
+
+Q: How do I use Claude in CI/CD?
+A: Use headless mode: claude -p "task" --output-format json
+
+Q: Can multiple Neovim instances use Claude?
+A: Yes, but only one should have diff watcher active (:ClaudeDiffToggle).
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
