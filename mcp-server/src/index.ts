@@ -34,7 +34,13 @@ interface PendingDiff {
 const pendingDiffs = new Map<string, PendingDiff>();
 
 // Get communication directory
+// Supports session-specific directory via CLAUCODE_COMM_DIR environment variable
+// Falls back to legacy global directory for backwards compatibility
 function getCommunicationDir(): string {
+  if (process.env.CLAUCODE_COMM_DIR) {
+    return process.env.CLAUCODE_COMM_DIR;
+  }
+  // Legacy fallback for backwards compatibility
   const dataDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
   return path.join(dataDir, 'claucode', 'diffs');
 }

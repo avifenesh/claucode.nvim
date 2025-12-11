@@ -133,9 +133,10 @@ end
 
 
 -- Get communication directory (must match MCP server)
+-- Uses session-specific subdirectory to isolate multiple Neovim instances
 local function get_communication_dir()
-  local data_dir = vim.env.XDG_DATA_HOME or vim.fn.expand("~/.local/share")
-  return data_dir .. "/claucode/diffs"
+  local session = require("claucode.session")
+  return session.get_communication_dir()
 end
 
 -- Ensure communication directory exists

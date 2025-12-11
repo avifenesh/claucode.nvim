@@ -9,8 +9,10 @@ end
 -- Check if our MCP server is already added to Claude (async)
 local function is_mcp_server_added_async(callback)
   local claude_cmd = get_claude_command()
+  local session = require("claucode.session")
+  local server_name = session.get_mcp_server_name()
   local output = ""
-  
+
   vim.fn.jobstart({claude_cmd, "mcp", "list"}, {
     on_stdout = function(_, data)
       if data then
@@ -21,8 +23,10 @@ local function is_mcp_server_added_async(callback)
       if exit_code ~= 0 then
         callback(false)
       else
-        -- Look for our server name in the output
-        callback(output:match("claucode%-nvim") ~= nil)
+        -- Look for our session-specific server name in the output
+        -- Escape the server name for pattern matching (hyphens need escaping)
+        local pattern = server_name:gsub("%-", "%%-")
+        callback(output:match(pattern) ~= nil)
       end
     end
   })
@@ -106,14 +110,23 @@ end
 
 -- Actually add the MCP server
 function M._do_add_mcp_server(mcp_server, callback)
-  
-  -- Add the MCP server using claude mcp add command
   local claude_cmd = get_claude_command()
-  
-  -- Adding MCP server to Claude configuration
-  
+  local session = require("claucode.session")
+  local server_name = session.get_mcp_server_name()
+  local comm_dir = session.get_communication_dir()
+  local project_dir = session.get_project_dir()
+
+  -- Add the MCP server using claude mcp add command with project scope
+  -- Pass environment variables for session identification
   local output = ""
-  vim.fn.jobstart({claude_cmd, "mcp", "add", "--scope", "user", "claucode-nvim", "node", mcp_server}, {
+  vim.fn.jobstart({
+    claude_cmd, "mcp", "add",
+    "--scope", "project",
+    "-e", "CLAUCODE_SESSION_ID=" .. server_name,
+    "-e", "CLAUCODE_COMM_DIR=" .. comm_dir,
+    server_name, "node", mcp_server
+  }, {
+    cwd = project_dir,  -- Run from project directory for project scope
     on_stdout = function(_, data)
       if data then
         output = output .. table.concat(data, "\n")
@@ -127,13 +140,13 @@ function M._do_add_mcp_server(mcp_server, callback)
     on_exit = function(_, exit_code)
       if exit_code ~= 0 then
         vim.notify("Failed to add MCP server: " .. output, vim.log.levels.ERROR)
-        
+
         -- Check if it's because claude doesn't support mcp subcommand
         if output:match("Unknown command") or output:match("command not found") then
           vim.notify("Your Claude CLI version doesn't support 'mcp' command.", vim.log.levels.ERROR)
           vim.notify("Please update Claude Code CLI to the latest version.", vim.log.levels.ERROR)
         end
-        
+
         if callback then callback(false) end
       else
         -- Removed startup notification to reduce noise
@@ -146,13 +159,18 @@ end
 -- Remove our MCP server from Claude configuration
 function M.remove_mcp_server()
   local claude_cmd = get_claude_command()
-  local cmd = claude_cmd .. " mcp remove claucode-nvim"
+  local session = require("claucode.session")
+  local server_name = session.get_mcp_server_name()
+  local project_dir = session.get_project_dir()
+
+  -- Remove the session-specific MCP server
+  local cmd = string.format("cd '%s' && %s mcp remove %s", project_dir, claude_cmd, server_name)
   local output = vim.fn.system(cmd)
   if vim.v.shell_error ~= 0 then
     vim.notify("Failed to remove MCP server: " .. output, vim.log.levels.ERROR)
     return false
   end
-  
+
   vim.notify("Claucode MCP server removed from Claude", vim.log.levels.INFO)
   return true
 end

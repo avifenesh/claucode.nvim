@@ -85,6 +85,8 @@ M.config = {
 		enabled = true,
 		-- Auto-build MCP server if not found
 		auto_build = true,
+		-- Remove MCP server when Neovim exits (for multi-session support)
+		cleanup_on_exit = true,
 	},
 	-- UI settings
 	ui = {
@@ -172,6 +174,21 @@ function M.setup(user_config)
 		require("claucode.mcp").setup(M.config)
 		-- Add MCP server to Claude configuration
 		require("claucode.mcp_manager").setup(M.config)
+
+		-- Register cleanup on Neovim exit (for multi-session support)
+		vim.api.nvim_create_autocmd("VimLeavePre", {
+			callback = function()
+				if M.config.bridge.show_diff then
+					-- Stop diff watcher
+					require("claucode.mcp").cleanup()
+					-- Remove MCP server if cleanup_on_exit is enabled
+					if M.config.mcp.cleanup_on_exit ~= false then
+						require("claucode.mcp_manager").remove_mcp_server()
+					end
+				end
+			end,
+			desc = "Claucode cleanup on exit"
+		})
 	end
 
 	-- Setup CLAUDE.md management for diff preview
