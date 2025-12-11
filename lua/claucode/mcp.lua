@@ -303,11 +303,7 @@ function M.show_diff_window(hash, filepath, original, modified)
     vim.cmd("diffthis")
   end)
   
-  -- Response function
   local function respond(approved)
-    -- Processing diff decision silently
-    
-    -- Write response to file
     local dir = get_communication_dir()
     local response_file = dir .. "/" .. hash .. ".response.json"
     local response_data = vim.fn.json_encode({
@@ -330,8 +326,6 @@ function M.show_diff_window(hash, filepath, original, modified)
       end
     end
     pending_diffs[hash] = nil
-    
-    -- Diff response processed
   end
   
   -- Set up keymaps for all buffers
@@ -375,7 +369,6 @@ function M.setup(config)
   -- Start diff watcher if show_diff is enabled
   if config.bridge and config.bridge.show_diff then
     M.start_diff_watcher()
-    -- Removed startup notification to reduce noise
   end
 end
 
