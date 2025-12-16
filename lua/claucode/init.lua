@@ -1,8 +1,13 @@
 -- claucode.nvim - Bridge between Neovim and Claude Code CLI
--- Repository: https://github.com/your-username/claucode.nvim
+-- Repository: https://github.com/avifenesh/claucode.nvim
 -- License: MIT
+-- Author: Avi Fenesh
+-- Version: 0.3.0
 
-local M = {}
+local M = {
+	-- Plugin version
+	version = "0.3.0",
+}
 
 -- Default configuration
 M.config = {
@@ -188,24 +193,7 @@ function M.setup(user_config)
 		desc = "Send a prompt to Claude Code CLI",
 	})
 
-	vim.api.nvim_create_user_command("ClaudeStop", function()
-		require("claucode.bridge").stop()
-		require("claucode.watcher").stop()
-	end, {
-		desc = "Stop Claude Code bridge and file watcher",
-	})
 
-	vim.api.nvim_create_user_command("ClaudeStart", function()
-		require("claucode.watcher").start(M.config)
-	end, {
-		desc = "Start Claude Code file watcher",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeReview", function()
-		require("claucode.review").show_pending_changes()
-	end, {
-		desc = "Review pending changes from Claude",
-	})
 
 	vim.api.nvim_create_user_command("ClaudeTerminal", function(opts)
 		require("claucode.terminal").open_claude_terminal(opts.args)
@@ -220,58 +208,162 @@ function M.setup(user_config)
 		desc = "Toggle Claude terminal",
 	})
 
-	vim.api.nvim_create_user_command("ClaudeTerminalSend", function(opts)
-		require("claucode.terminal").send_to_terminal(opts.args)
-	end, {
-		nargs = "+",
-		desc = "Send text to Claude terminal",
-	})
 
-	vim.api.nvim_create_user_command("ClaudeDiffInstructions", function()
-		require("claucode.claude_md").toggle_diff_instructions()
-	end, {
-		desc = "Toggle Neovim diff preview instructions in CLAUDE.md",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeMCPAdd", function()
-		require("claucode.mcp_manager").add_mcp_server()
-	end, {
-		desc = "Add Claucode MCP server to Claude configuration",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeMCPRemove", function()
-		require("claucode.mcp_manager").remove_mcp_server()
-	end, {
-		desc = "Remove Claucode MCP server from Claude configuration",
-	})
-
-	vim.api.nvim_create_user_command("ClaudeDiffStatus", function()
-		local mcp = require("claucode.mcp")
-		if mcp.diff_watcher_timer then
-			-- Removed startup notification to reduce noise
-		else
-			vim.notify("Claucode: Diff preview is inactive", vim.log.levels.INFO)
-		end
-	end, {
-		desc = "Show Claucode diff watcher status",
-	})
 
 	vim.api.nvim_create_user_command("ClaudeDiffToggle", function()
-		local mcp = require("claucode.mcp")
-		if mcp.diff_watcher_timer then
-			mcp.stop_diff_watcher()
-			vim.notify("Claucode: Diff preview disabled", vim.log.levels.INFO)
+		-- Toggle the show_diff configuration
+		M.config.bridge.show_diff = not M.config.bridge.show_diff
+		
+		if M.config.bridge.show_diff then
+			-- Enable diff preview
+			if M.config.mcp.enabled then
+				-- Start diff watcher
+				require("claucode.mcp").start_diff_watcher()
+				-- Add diff instructions to CLAUDE.md
+				require("claucode.claude_md").add_diff_instructions()
+				-- Add MCP server to Claude configuration
+				require("claucode.mcp_manager").add_mcp_server(function(success)
+					if success then
+						vim.notify("Claucode: Diff preview enabled (MCP server added)", vim.log.levels.INFO)
+						vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
+					else
+						vim.notify("Claucode: Diff preview enabled (MCP server may not be registered)", vim.log.levels.WARN)
+					end
+				end)
+			else
+				vim.notify("Claucode: Cannot enable diff preview - MCP is disabled in config", vim.log.levels.WARN)
+				M.config.bridge.show_diff = false
+			end
 		else
-			mcp.start_diff_watcher()
-			vim.notify("Claucode: Diff preview enabled", vim.log.levels.INFO)
+			-- Disable diff preview
+			require("claucode.mcp").stop_diff_watcher()
+			require("claucode.claude_md").remove_diff_instructions()
+			-- Remove MCP server from Claude configuration
+			require("claucode.mcp_manager").remove_mcp_server()
+			vim.notify("Claucode: Diff preview disabled (MCP server removed)", vim.log.levels.INFO)
+			vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
 		end
 	end, {
-		desc = "Toggle Claucode diff watcher",
+		desc = "Toggle Claucode diff preview on/off",
 	})
 end
 
 function M.get_config()
 	return M.config
+end
+
+-- Health check function for :checkhealth
+function M.health()
+	local health = vim.health or require("health")
+	local start = health.start or health.report_start
+	local ok = health.ok or health.report_ok
+	local warn = health.warn or health.report_warn
+	local error = health.error or health.report_error
+	
+	start("claucode.nvim")
+	
+	-- Check Neovim version
+	if vim.fn.has("nvim-0.5.0") == 1 then
+		ok("Neovim version >= 0.5.0")
+	else
+		error("Neovim version < 0.5.0. Please upgrade Neovim.")
+	end
+	
+	-- Check Claude CLI
+	local claude_cmd = M.config.command or "claude"
+	if vim.fn.executable(claude_cmd) == 1 then
+		ok("Claude Code CLI found: " .. claude_cmd)
+		
+		-- Check version
+		local handle = io.popen(claude_cmd .. " --version 2>&1")
+		if handle then
+			local version = handle:read("*a")
+			handle:close()
+			if version and version:match("Claude Code") then
+				ok("Claude Code CLI version: " .. version:gsub("\n", ""))
+			end
+		end
+	else
+		error("Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
+	end
+	
+	-- Check API key
+	if vim.fn.getenv("ANTHROPIC_API_KEY") ~= vim.NIL then
+		ok("ANTHROPIC_API_KEY is set")
+	else
+		warn("ANTHROPIC_API_KEY not set. You may need to authenticate via other methods.")
+	end
+	
+	-- Check MCP server if enabled
+	if M.config.mcp.enabled then
+		local mcp_server_path = vim.fn.expand("~/.config/claucode/mcp-server/build/index.js")
+		if vim.fn.filereadable(mcp_server_path) == 1 then
+			ok("MCP server built and ready")
+		else
+			warn("MCP server not built. Will be built on first use.")
+		end
+	end
+	
+	-- Check Git (for diff functionality)
+	if vim.fn.executable("git") == 1 then
+		ok("Git is installed")
+	else
+		warn("Git not found. Diff functionality may be limited.")
+	end
+	
+	-- Check Node.js and npm (for MCP)
+	if vim.fn.executable("node") == 1 then
+		ok("Node.js is installed")
+	else
+		warn("Node.js not found. Required for MCP server.")
+	end
+	
+	if vim.fn.executable("npm") == 1 then
+		ok("npm is installed")
+	else
+		warn("npm not found. Required for installing Claude CLI and building MCP server.")
+	end
+end
+
+-- Utility function to get plugin status
+function M.status()
+	local status = {
+		version = M.version,
+		claude_command = M.config.command,
+		mcp_enabled = M.config.mcp.enabled,
+		diff_preview = M.config.bridge.show_diff,
+		watcher_active = false,
+		terminal_open = false,
+	}
+	
+	-- Check if watcher is running
+	local ok, watcher = pcall(require, "claucode.watcher")
+	if ok and watcher.is_running then
+		status.watcher_active = watcher.is_running()
+	end
+	
+	-- Check if terminal is open
+	local ok_term, terminal = pcall(require, "claucode.terminal")
+	if ok_term and terminal.is_open then
+		status.terminal_open = terminal.is_open()
+	end
+	
+	return status
+end
+
+-- Debug function to help troubleshoot issues
+function M.debug_info()
+	local info = {
+		config = M.config,
+		status = M.status(),
+		nvim_version = vim.version().major .. "." .. vim.version().minor .. "." .. vim.version().patch,
+		os = vim.loop.os_uname().sysname,
+		cwd = vim.fn.getcwd(),
+	}
+	
+	-- Pretty print the debug info
+	vim.notify(vim.inspect(info), vim.log.levels.INFO, { title = "Claucode Debug Info" })
+	return info
 end
 
 return M
