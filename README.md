@@ -90,6 +90,7 @@ require("claucode").setup({
   mcp = {
     enabled = true,      -- Enable MCP server (default: true)
     auto_build = true,   -- Auto-build MCP server if not found (default: true)
+    server_name = nil,   -- Custom MCP server name (default: auto-generated with session ID)
   },
 
   -- UI settings
@@ -102,6 +103,15 @@ require("claucode").setup({
     terminal = {
       height = 0.5, -- Terminal height as fraction of screen (0.5 = 50%)
     },
+    icons = {
+      enabled = true, -- Set to false to disable icons/emojis
+    },
+  },
+  
+  -- Notification settings
+  notifications = {
+    silent_watcher = true,    -- Don't notify on watcher start/stop
+    silent_claude_md = true,  -- Don't notify on CLAUDE.md updates
   },
 })
 ```
@@ -182,11 +192,31 @@ This command will:
 
 ### Commands
 
-- `:Claude <prompt>` - Send a prompt to Claude (shows response in popup)
+- `:Claude [prompt]` - Send a prompt to Claude (shows response in popup). Without arguments, opens an input prompt.
 - `:Claude --file <prompt>` - Include current file context with prompt
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
 - `:ClaudeDiffToggle` - Toggle diff preview on/off
+
+### Multi-Session Support
+
+Claucode now supports running multiple Neovim instances simultaneously without conflicts:
+
+- Each Neovim instance gets a unique session ID
+- Diff preview requests are isolated per session
+- MCP server names are session-specific by default
+- Communication directories are scoped to each session
+
+**For most users, this just works™ with no configuration needed.**
+
+Advanced users can set a custom MCP server name if needed:
+```lua
+require("claucode").setup({
+  mcp = {
+    server_name = "my-custom-claucode-server", -- Share across sessions
+  },
+})
+```
 
 ### Default Keymaps
 
@@ -208,7 +238,8 @@ With default prefix `<leader>ai`:
 ### Examples
 
 ```vim
-" Ask Claude a question
+" Ask Claude a question (with or without arguments)
+:Claude
 :Claude How do I implement a binary search in Lua?
 
 " Review current file
@@ -226,6 +257,37 @@ With default prefix `<leader>ai`:
 :ClaudeTerminal --mcp-config ../.mcp.json
 :ClaudeTerminal --continue --mcp-config ../.mcp.json
 ```
+
+## Customization
+
+### Disabling Icons
+
+If you prefer a cleaner look without emojis:
+
+```lua
+require("claucode").setup({
+  ui = {
+    icons = {
+      enabled = false,
+    },
+  },
+})
+```
+
+### Adjusting Notifications
+
+Control notification verbosity:
+
+```lua
+require("claucode").setup({
+  notifications = {
+    silent_watcher = true,    -- Silence watcher start/stop notifications
+    silent_claude_md = true,  -- Silence CLAUDE.md update notifications
+  },
+})
+```
+
+Errors and warnings are always shown to ensure you don't miss important information.
 
 ## What This Is (and Isn't)
 
