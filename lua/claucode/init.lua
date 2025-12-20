@@ -13,6 +13,8 @@ local M = {
 
 -- Generate a unique session identifier
 local function generate_session_id()
+	-- Seed random number generator
+	math.randomseed(os.time() + vim.fn.getpid())
 	-- Use PID and timestamp for uniqueness
 	local pid = vim.fn.getpid()
 	local time = os.time()
@@ -320,6 +322,10 @@ end
 
 -- Get the session ID for this Neovim instance
 function M.get_session_id()
+	-- Lazy initialization if setup() wasn't called
+	if not M.session_id then
+		M.session_id = generate_session_id()
+	end
 	return M.session_id
 end
 

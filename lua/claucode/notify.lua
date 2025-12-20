@@ -3,9 +3,20 @@
 
 local M = {}
 
+-- Cache for config to avoid repeated module loading
+local config_cache = nil
+
+-- Get cached config
+local function get_cached_config()
+	if not config_cache then
+		config_cache = require("claucode").get_config()
+	end
+	return config_cache
+end
+
 -- Get icon based on level and config
 local function get_icon(level)
-	local config = require("claucode").get_config()
+	local config = get_cached_config()
 	if not config.ui.icons.enabled then
 		return ""
 	end
@@ -23,7 +34,6 @@ end
 -- Core notification function
 local function notify(message, level, opts)
 	opts = opts or {}
-	local config = require("claucode").get_config()
 	
 	-- Add icon prefix
 	local icon = get_icon(level)
@@ -65,7 +75,7 @@ end
 
 -- Watcher notifications (respects silent_watcher config)
 function M.watcher(message, opts)
-	local config = require("claucode").get_config()
+	local config = get_cached_config()
 	if not config.notifications.silent_watcher then
 		notify(message, vim.log.levels.INFO, opts)
 	end
@@ -73,7 +83,7 @@ end
 
 -- CLAUDE.md notifications (respects silent_claude_md config)
 function M.claude_md(message, opts)
-	local config = require("claucode").get_config()
+	local config = get_cached_config()
 	if not config.notifications.silent_claude_md then
 		notify(message, vim.log.levels.INFO, opts)
 	end
@@ -81,7 +91,6 @@ end
 
 -- MCP setup notifications (silent by default)
 function M.mcp_setup(message, opts)
-	local config = require("claucode").get_config()
 	-- Only show if explicitly not silenced
 	if opts and opts.force then
 		notify(message, vim.log.levels.INFO, opts)
