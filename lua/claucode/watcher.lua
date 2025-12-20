@@ -62,13 +62,14 @@ local function reload_buffer_if_changed(filepath)
             vim.api.nvim_buf_call(buf, function()
               vim.cmd("edit!")
             end)
-            vim.notify("Reloaded: " .. vim.fn.fnamemodify(filepath, ":~:."), vim.log.levels.INFO)
+            local notify = require("claucode.notify")
+            notify.info("Reloaded: " .. vim.fn.fnamemodify(filepath, ":~:."))
           else
             -- Notify user about conflict
-            vim.notify(
+            local notify = require("claucode.notify")
+            notify.warn(
               "File changed externally but buffer has unsaved changes: " .. 
-              vim.fn.fnamemodify(filepath, ":~:."),
-              vim.log.levels.WARN
+              vim.fn.fnamemodify(filepath, ":~:.")
             )
           end
           break
@@ -114,7 +115,8 @@ local function watch_file(filepath, config)
     handle:start(filepath, {}, function(err, filename, events)
       if err then
         vim.schedule(function()
-          vim.notify("File watcher error: " .. err, vim.log.levels.ERROR)
+          local notify = require("claucode.notify")
+          notify.error("File watcher error: " .. err)
         end)
         return
       end
@@ -130,7 +132,8 @@ local function watch_file(filepath, config)
     file_timestamps[filepath] = get_file_mtime(filepath)
   else
     vim.schedule(function()
-      vim.notify("Failed to watch file: " .. filepath .. " - " .. err, vim.log.levels.ERROR)
+      local notify = require("claucode.notify")
+      notify.error("Failed to watch file: " .. filepath .. " - " .. err)
     end)
   end
 end
@@ -141,7 +144,8 @@ local function watch_directory(dirpath, config)
     handle:start(dirpath, {}, function(err, filename, events)
       if err then
         vim.schedule(function()
-          vim.notify("Directory watcher error: " .. err, vim.log.levels.ERROR)
+          local notify = require("claucode.notify")
+          notify.error("Directory watcher error: " .. err)
         end)
         return
       end
@@ -165,7 +169,8 @@ local function watch_directory(dirpath, config)
     watchers[dirpath] = handle
   else
     vim.schedule(function()
-      vim.notify("Failed to watch directory: " .. dirpath .. " - " .. err, vim.log.levels.ERROR)
+      local notify = require("claucode.notify")
+      notify.error("Failed to watch directory: " .. dirpath .. " - " .. err)
     end)
   end
 end
@@ -202,7 +207,8 @@ function M.start(config)
     end,
   })
   
-  vim.notify("Claude Code file watcher started", vim.log.levels.INFO)
+  local notify = require("claucode.notify")
+  notify.watcher("Claude Code file watcher started")
 end
 
 function M.stop()
@@ -233,7 +239,8 @@ function M.stop()
   -- Clear autocmd
   pcall(vim.api.nvim_del_augroup_by_name, "ClauCodeWatcher")
   
-  vim.notify("Claude Code file watcher stopped", vim.log.levels.INFO)
+  local notify = require("claucode.notify")
+  notify.watcher("Claude Code file watcher stopped")
 end
 
 function M.is_running()

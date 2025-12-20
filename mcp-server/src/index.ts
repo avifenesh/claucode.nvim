@@ -9,6 +9,9 @@ import path from "path";
 import { createHash } from "crypto";
 import os from "os";
 
+// Get session ID from command line args (passed by Neovim)
+const sessionId = process.argv[2] || "default";
+
 // Tool schemas
 const EditFileSchema = z.object({
   file_path: z.string().describe("Path to the file to edit"),
@@ -33,10 +36,10 @@ interface PendingDiff {
 
 const pendingDiffs = new Map<string, PendingDiff>();
 
-// Get communication directory
+// Get communication directory (scoped to session)
 function getCommunicationDir(): string {
   const dataDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
-  return path.join(dataDir, 'claucode', 'diffs');
+  return path.join(dataDir, 'claucode', 'diffs', sessionId);
 }
 
 // Ensure communication directory exists
@@ -295,7 +298,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Claucode MCP server started");
+  console.error(`Claucode MCP server started (session: ${sessionId})`);
 }
 
 main().catch((error) => {

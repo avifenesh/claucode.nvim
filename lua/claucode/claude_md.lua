@@ -85,14 +85,16 @@ function M.add_diff_instructions()
   -- Write back
   local file = io.open(claude_md, "w")
   if not file then
-    vim.notify("Failed to write to CLAUDE.md", vim.log.levels.ERROR)
+    local notify = require("claucode.notify")
+    notify.error("Failed to write to CLAUDE.md")
     return false
   end
   
   file:write(new_content)
   file:close()
   
-  vim.notify("Added Neovim diff preview instructions to CLAUDE.md", vim.log.levels.INFO)
+  local notify = require("claucode.notify")
+  notify.claude_md("Added Neovim diff preview instructions to CLAUDE.md")
   return true
 end
 
@@ -123,14 +125,16 @@ function M.remove_diff_instructions()
   
   local file = io.open(claude_md, "w")
   if not file then
-    vim.notify("Failed to update CLAUDE.md", vim.log.levels.ERROR)
+    local notify = require("claucode.notify")
+    notify.error("Failed to update CLAUDE.md")
     return false
   end
   
   file:write(new_content)
   file:close()
   
-  vim.notify("Removed Neovim diff preview instructions from CLAUDE.md", vim.log.levels.INFO)
+  local notify = require("claucode.notify")
+  notify.claude_md("Removed Neovim diff preview instructions from CLAUDE.md")
   return true
 end
 

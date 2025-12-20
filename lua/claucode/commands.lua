@@ -105,7 +105,8 @@ function M.claude(args, from_visual)
     vim.schedule(function()
       ui.finish_streaming()
       if result.is_error then
-        vim.notify("Claude error: " .. (result.error or "Unknown error"), vim.log.levels.ERROR)
+        local notify = require("claucode.notify")
+        notify.error("Claude error: " .. (result.error or "Unknown error"))
       end
     end)
   end)
@@ -117,7 +118,8 @@ function M.claude(args, from_visual)
   })
   
   if not success then
-    vim.notify("Failed to send prompt to Claude Code", vim.log.levels.ERROR)
+    local notify = require("claucode.notify")
+    notify.error("Failed to send prompt to Claude Code")
   end
 end
 

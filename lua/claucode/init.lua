@@ -7,7 +7,18 @@
 local M = {
 	-- Plugin version
 	version = "0.3.0",
+	-- Unique session identifier for this Neovim instance
+	session_id = nil,
 }
+
+-- Generate a unique session identifier
+local function generate_session_id()
+	-- Use PID and timestamp for uniqueness
+	local pid = vim.fn.getpid()
+	local time = os.time()
+	local random = math.random(1000, 9999)
+	return string.format("nvim-%d-%d-%d", pid, time, random)
+end
 
 -- Default configuration
 M.config = {
@@ -85,6 +96,8 @@ M.config = {
 		enabled = true,
 		-- Auto-build MCP server if not found
 		auto_build = true,
+		-- Server name (auto-generated with session ID if nil)
+		server_name = nil,
 	},
 	-- UI settings
 	ui = {
@@ -98,6 +111,16 @@ M.config = {
 		terminal = {
 			height = 0.5, -- 50% of screen height (increased from 30%)
 		},
+		-- Icon settings
+		icons = {
+			enabled = true, -- Set to false to disable icons/emojis
+		},
+	},
+	-- Notification settings
+	notifications = {
+		-- Reduce noise by silencing routine operations
+		silent_watcher = true, -- Don't notify on watcher start/stop
+		silent_claude_md = true, -- Don't notify on CLAUDE.md updates
 	},
 }
 
@@ -147,11 +170,15 @@ local function merge_config(user_config)
 end
 
 function M.setup(user_config)
+	-- Generate session ID first
+	M.session_id = generate_session_id()
+	
 	merge_config(user_config)
 
 	-- Validate configuration
 	if M.config.bridge.show_diff and not M.config.mcp.enabled then
-		vim.notify("Claucode: show_diff requires MCP to be enabled. Disabling show_diff.", vim.log.levels.WARN)
+		local notify = require("claucode.notify")
+		notify.warn("show_diff requires MCP to be enabled. Disabling show_diff.")
 		M.config.bridge.show_diff = false
 	end
 
@@ -186,7 +213,17 @@ function M.setup(user_config)
 		if from_visual then
 			require("claucode.commands").store_visual_selection()
 		end
-		require("claucode.commands").claude(opts.args, from_visual)
+		
+		-- If no args provided, open input prompt
+		if opts.args == "" and not from_visual then
+			vim.ui.input({ prompt = "Claude prompt: " }, function(input)
+				if input and input ~= "" then
+					require("claucode.commands").claude(input, false)
+				end
+			end)
+		else
+			require("claucode.commands").claude(opts.args, from_visual)
+		end
 	end, {
 		nargs = "*",
 		range = true,
@@ -224,14 +261,17 @@ function M.setup(user_config)
 				-- Add MCP server to Claude configuration
 				require("claucode.mcp_manager").add_mcp_server(function(success)
 					if success then
-						vim.notify("Claucode: Diff preview enabled (MCP server added)", vim.log.levels.INFO)
-						vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
+						local notify = require("claucode.notify")
+						notify.info("Diff preview enabled (MCP server added)")
+						notify.warn("Note: Restart Claude terminal session for changes to take effect")
 					else
-						vim.notify("Claucode: Diff preview enabled (MCP server may not be registered)", vim.log.levels.WARN)
+						local notify = require("claucode.notify")
+						notify.warn("Diff preview enabled (MCP server may not be registered)")
 					end
 				end)
 			else
-				vim.notify("Claucode: Cannot enable diff preview - MCP is disabled in config", vim.log.levels.WARN)
+				local notify = require("claucode.notify")
+				notify.warn("Cannot enable diff preview - MCP is disabled in config")
 				M.config.bridge.show_diff = false
 			end
 		else
@@ -240,16 +280,56 @@ function M.setup(user_config)
 			require("claucode.claude_md").remove_diff_instructions()
 			-- Remove MCP server from Claude configuration
 			require("claucode.mcp_manager").remove_mcp_server()
-			vim.notify("Claucode: Diff preview disabled (MCP server removed)", vim.log.levels.INFO)
-			vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
+			local notify = require("claucode.notify")
+			notify.info("Diff preview disabled (MCP server removed)")
+			notify.warn("Note: Restart Claude terminal session for changes to take effect")
 		end
 	end, {
 		desc = "Toggle Claucode diff preview on/off",
+	})
+	
+	-- Setup cleanup on exit
+	vim.api.nvim_create_autocmd("VimLeavePre", {
+		group = vim.api.nvim_create_augroup("ClaucodeCleanup", { clear = true }),
+		callback = function()
+			-- Stop watchers and timers
+			local ok_watcher, watcher = pcall(require, "claucode.watcher")
+			if ok_watcher and watcher.stop then
+				watcher.stop()
+			end
+			
+			local ok_mcp, mcp = pcall(require, "claucode.mcp")
+			if ok_mcp and mcp.cleanup then
+				mcp.cleanup()
+			end
+			
+			-- Remove session-specific MCP server
+			if M.config.mcp.enabled and M.config.bridge.show_diff then
+				local ok_mgr, mgr = pcall(require, "claucode.mcp_manager")
+				if ok_mgr and mgr.remove_mcp_server then
+					mgr.remove_mcp_server()
+				end
+			end
+		end,
 	})
 end
 
 function M.get_config()
 	return M.config
+end
+
+-- Get the session ID for this Neovim instance
+function M.get_session_id()
+	return M.session_id
+end
+
+-- Get the MCP server name (with session ID if needed)
+function M.get_mcp_server_name()
+	if M.config.mcp.server_name then
+		return M.config.mcp.server_name
+	end
+	-- Default: use session-specific name for multi-instance support
+	return "claucode-nvim-" .. M.session_id
 end
 
 -- Health check function for :checkhealth
