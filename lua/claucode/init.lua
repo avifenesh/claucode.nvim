@@ -181,21 +181,26 @@ function M.setup(user_config)
 
 	-- Setup MCP integration if enabled
 	if M.config.mcp.enabled then
+		-- Initialize session identity (cache project dir before any :cd)
+		require("claucode.session").init()
 		-- Build MCP server if needed
 		require("claucode.mcp").setup(M.config)
 		-- Add MCP server to Claude configuration
 		require("claucode.mcp_manager").setup(M.config)
 
 		-- Register cleanup on Neovim exit (for multi-session support)
+		-- Use autogroup to prevent duplicate autocmds if setup() is called multiple times
+		local augroup = vim.api.nvim_create_augroup("ClaucodeCleanup", { clear = true })
 		vim.api.nvim_create_autocmd("VimLeavePre", {
+			group = augroup,
 			callback = function()
+				-- Stop diff watcher if it was running
 				if M.config.bridge.show_diff then
-					-- Stop diff watcher
 					require("claucode.mcp").cleanup()
-					-- Remove MCP server if cleanup_on_exit is enabled
-					if M.config.mcp.cleanup_on_exit ~= false then
-						require("claucode.mcp_manager").remove_mcp_server()
-					end
+				end
+				-- Remove MCP server if cleanup_on_exit is enabled
+				if M.config.mcp.cleanup_on_exit ~= false then
+					require("claucode.mcp_manager").remove_mcp_server()
 				end
 			end,
 			desc = "Claucode cleanup on exit"
@@ -215,12 +220,13 @@ function M.setup(user_config)
 			require("claucode.commands").store_visual_selection()
 		end
 
-		-- If no args provided and not from visual mode, open input prompt
+		-- If no args provided, open input prompt (works for both normal and visual mode)
 		local args = vim.trim(opts.args)
-		if args == "" and not from_visual then
-			vim.ui.input({ prompt = "Claude prompt: " }, function(input)
+		if args == "" then
+			local prompt_text = from_visual and "Claude prompt (with selection): " or "Claude prompt: "
+			vim.ui.input({ prompt = prompt_text }, function(input)
 				if input and vim.trim(input) ~= "" then
-					require("claucode.commands").claude(vim.trim(input), false)
+					require("claucode.commands").claude(vim.trim(input), from_visual)
 				end
 			end)
 		else
