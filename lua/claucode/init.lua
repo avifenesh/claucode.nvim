@@ -216,14 +216,15 @@ function M.setup(user_config)
 		end
 
 		-- If no args provided and not from visual mode, open input prompt
-		if opts.args == "" and not from_visual then
+		local args = vim.trim(opts.args)
+		if args == "" and not from_visual then
 			vim.ui.input({ prompt = "Claude prompt: " }, function(input)
-				if input and input ~= "" then
-					require("claucode.commands").claude(input, false)
+				if input and vim.trim(input) ~= "" then
+					require("claucode.commands").claude(vim.trim(input), false)
 				end
 			end)
 		else
-			require("claucode.commands").claude(opts.args, from_visual)
+			require("claucode.commands").claude(args, from_visual)
 		end
 	end, {
 		nargs = "*",
