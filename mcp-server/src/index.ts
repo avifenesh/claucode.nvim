@@ -80,7 +80,7 @@ async function writeDiffRequest(hash: string, diff: PendingDiff): Promise<string
 async function watchForResponse(hash: string): Promise<boolean> {
   const dir = await ensureCommunicationDir();
   const responseFile = path.join(dir, `${hash}.response.json`);
-  
+
   return new Promise(async (resolve) => {
     const timeout = setTimeout(async () => {
       // Cleanup files on timeout
@@ -89,22 +89,22 @@ async function watchForResponse(hash: string): Promise<boolean> {
       } catch {}
       resolve(false);
     }, 60000); // 60 second timeout
-    
+
     // Poll for response file
     const checkInterval = setInterval(async () => {
       try {
         const content = await fs.readFile(responseFile, 'utf-8');
         const response = JSON.parse(content);
-        
+
         clearInterval(checkInterval);
         clearTimeout(timeout);
-        
+
         // Cleanup files
         try {
           await fs.unlink(responseFile);
           await fs.unlink(path.join(dir, `${hash}.request.json`));
         } catch {}
-        
+
         resolve(response.approved === true);
       } catch {
         // File doesn't exist yet, keep polling
@@ -128,8 +128,7 @@ async function showDiffAndWait(filepath: string, original: string, modified: str
   
   try {
     // Write diff request to file
-    const requestFile = await writeDiffRequest(hash, diff);
-    console.error(`Diff request written to: ${requestFile}`);
+    await writeDiffRequest(hash, diff);
     
     // Wait for response
     const approved = await watchForResponse(hash);
@@ -138,8 +137,7 @@ async function showDiffAndWait(filepath: string, original: string, modified: str
     pendingDiffs.delete(hash);
     
     return approved;
-  } catch (error: any) {
-    console.error(`Error in showDiffAndWait: ${error.message}`);
+  } catch {
     pendingDiffs.delete(hash);
     return false;
   }
@@ -218,7 +216,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         // Show diff and wait for approval
         const approved = await showDiffAndWait(file_path, content, modified);
-        
+
         if (approved) {
           await fs.writeFile(file_path, modified, "utf-8");
           return {
@@ -301,7 +299,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Claucode MCP server started");
 }
 
 main().catch((error) => {

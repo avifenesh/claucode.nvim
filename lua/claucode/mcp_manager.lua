@@ -56,8 +56,9 @@ end
 function M._continue_add_mcp_server(callback)
   local source_path = debug.getinfo(1, "S").source:match("@(.*)")
   local current_file_dir = vim.fn.fnamemodify(source_path, ":h")
-  local plugin_root = vim.fn.fnamemodify(current_file_dir, ":h")
-  
+  -- Go up two levels: lua/claucode -> lua -> plugin_root
+  local plugin_root = vim.fn.fnamemodify(current_file_dir, ":h:h")
+
   local possible_paths = {
     plugin_root .. "/mcp-server/build/index.js",
     vim.fn.stdpath("data") .. "/lazy/claucode.nvim/mcp-server/build/index.js",
@@ -73,33 +74,33 @@ function M._continue_add_mcp_server(callback)
   end
   
   if not mcp_server then
-    vim.notify("MCP server not found. Attempted paths:", vim.log.levels.ERROR)
+    local notify = require("claucode.notify")
+    notify.error("MCP server not found. Attempted paths:")
     for _, path in ipairs(possible_paths) do
-      vim.notify("  - " .. path, vim.log.levels.ERROR)
+      notify.error("  - " .. path)
     end
     mcp_server = possible_paths[1] -- Use first path as fallback
   end
   
   if vim.fn.filereadable(mcp_server) == 0 then
     local mcp = require("claucode.mcp")
+    local notify = require("claucode.notify")
     if mcp.build_async then
-      vim.notify("MCP server not found, attempting to build...", vim.log.levels.INFO)
+      notify.mcp_setup("MCP server not found, attempting to build...", { force = true })
       mcp.build_async(require("claucode").get_config(), function(success)
         if success and vim.fn.filereadable(mcp_server) == 1 then
           M._do_add_mcp_server(mcp_server, callback)
         else
-          vim.notify("MCP server build failed. Path: " .. mcp_server, vim.log.levels.ERROR)
+          notify.error("MCP server build failed. Path: " .. mcp_server)
           if callback then callback(false) end
         end
       end)
       return
     else
-      vim.notify("MCP server not built. Please build it first.", vim.log.levels.ERROR)
+      notify.error("MCP server not built. Please build it first.")
       if callback then callback(false) end
       return
     end
-  else
-    vim.notify("Found MCP server at: " .. mcp_server, vim.log.levels.INFO)
   end
   
   M._do_add_mcp_server(mcp_server, callback)
@@ -135,11 +136,12 @@ function M._do_add_mcp_server(mcp_server, callback)
     end,
     on_exit = function(_, exit_code)
       if exit_code ~= 0 then
-        vim.notify("Failed to add MCP server: " .. output, vim.log.levels.ERROR)
+        local notify = require("claucode.notify")
+        notify.error("Failed to add MCP server: " .. output)
 
         if output:match("Unknown command") or output:match("command not found") then
-          vim.notify("Your Claude CLI version doesn't support 'mcp' command.", vim.log.levels.ERROR)
-          vim.notify("Please update Claude Code CLI to the latest version.", vim.log.levels.ERROR)
+          notify.error("Your Claude CLI version doesn't support 'mcp' command.")
+          notify.error("Please update Claude Code CLI to the latest version.")
         end
 
         if callback then callback(false) end
@@ -153,17 +155,18 @@ end
 function M.remove_mcp_server()
   local claude_cmd = get_claude_command()
   local session = require("claucode.session")
+  local notify = require("claucode.notify")
   local server_name = session.get_mcp_server_name()
   local project_dir = session.get_project_dir()
 
   local cmd = string.format("cd '%s' && %s mcp remove %s", project_dir, claude_cmd, server_name)
   local output = vim.fn.system(cmd)
   if vim.v.shell_error ~= 0 then
-    vim.notify("Failed to remove MCP server: " .. output, vim.log.levels.ERROR)
+    notify.error("Failed to remove MCP server: " .. output)
     return false
   end
 
-  vim.notify("Claucode MCP server removed from Claude", vim.log.levels.INFO)
+  notify.mcp_setup("Claucode MCP server removed from Claude")
   return true
 end
 

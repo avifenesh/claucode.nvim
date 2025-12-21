@@ -100,6 +100,16 @@ M.config = {
 		terminal = {
 			height = 0.5, -- 50% of screen height (increased from 30%)
 		},
+		-- Icon settings
+		icons = {
+			enabled = true, -- Set to false to disable icons/emojis in notifications
+		},
+	},
+	-- Notification settings
+	notifications = {
+		-- Reduce noise by silencing routine operations
+		silent_watcher = true, -- Don't notify on watcher start/stop and buffer reloads
+		silent_claude_md = true, -- Don't notify on CLAUDE.md updates
 	},
 }
 
@@ -153,7 +163,8 @@ function M.setup(user_config)
 
 	-- Validate configuration
 	if M.config.bridge.show_diff and not M.config.mcp.enabled then
-		vim.notify("Claucode: show_diff requires MCP to be enabled. Disabling show_diff.", vim.log.levels.WARN)
+		local notify = require("claucode.notify")
+		notify.warn("show_diff requires MCP to be enabled. Disabling show_diff.")
 		M.config.bridge.show_diff = false
 	end
 
@@ -203,7 +214,17 @@ function M.setup(user_config)
 		if from_visual then
 			require("claucode.commands").store_visual_selection()
 		end
-		require("claucode.commands").claude(opts.args, from_visual)
+
+		-- If no args provided and not from visual mode, open input prompt
+		if opts.args == "" and not from_visual then
+			vim.ui.input({ prompt = "Claude prompt: " }, function(input)
+				if input and input ~= "" then
+					require("claucode.commands").claude(input, false)
+				end
+			end)
+		else
+			require("claucode.commands").claude(opts.args, from_visual)
+		end
 	end, {
 		nargs = "*",
 		range = true,
@@ -228,9 +249,10 @@ function M.setup(user_config)
 
 
 	vim.api.nvim_create_user_command("ClaudeDiffToggle", function()
+		local notify = require("claucode.notify")
 		-- Toggle the show_diff configuration
 		M.config.bridge.show_diff = not M.config.bridge.show_diff
-		
+
 		if M.config.bridge.show_diff then
 			-- Enable diff preview
 			if M.config.mcp.enabled then
@@ -241,14 +263,14 @@ function M.setup(user_config)
 				-- Add MCP server to Claude configuration
 				require("claucode.mcp_manager").add_mcp_server(function(success)
 					if success then
-						vim.notify("Claucode: Diff preview enabled (MCP server added)", vim.log.levels.INFO)
-						vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
+						notify.info("Diff preview enabled (MCP server added)")
+						notify.warn("Note: Restart Claude terminal session for changes to take effect")
 					else
-						vim.notify("Claucode: Diff preview enabled (MCP server may not be registered)", vim.log.levels.WARN)
+						notify.warn("Diff preview enabled (MCP server may not be registered)")
 					end
 				end)
 			else
-				vim.notify("Claucode: Cannot enable diff preview - MCP is disabled in config", vim.log.levels.WARN)
+				notify.warn("Cannot enable diff preview - MCP is disabled in config")
 				M.config.bridge.show_diff = false
 			end
 		else
@@ -257,8 +279,8 @@ function M.setup(user_config)
 			require("claucode.claude_md").remove_diff_instructions()
 			-- Remove MCP server from Claude configuration
 			require("claucode.mcp_manager").remove_mcp_server()
-			vim.notify("Claucode: Diff preview disabled (MCP server removed)", vim.log.levels.INFO)
-			vim.notify("Note: Restart Claude terminal session for changes to take effect", vim.log.levels.WARN)
+			notify.info("Diff preview disabled (MCP server removed)")
+			notify.warn("Note: Restart Claude terminal session for changes to take effect")
 		end
 	end, {
 		desc = "Toggle Claucode diff preview on/off",

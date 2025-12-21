@@ -32,37 +32,38 @@ end
 local function build_mcp_server()
   local root = get_plugin_root()
   local mcp_dir = root .. "/mcp-server"
-  
+  local notify = require("claucode.notify")
+
   -- Check if source files exist
   if vim.fn.isdirectory(mcp_dir) == 0 then
-    vim.notify("MCP server source not found at: " .. mcp_dir, vim.log.levels.ERROR)
+    notify.error("MCP server source not found at: " .. mcp_dir)
     return false
   end
-  
+
   -- Building MCP server
-  
+
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
-    vim.notify("npm not found. Please install Node.js and npm to use diff preview.", vim.log.levels.ERROR)
+    notify.error("npm not found. Please install Node.js and npm to use diff preview.")
     return false
   end
-  
+
   -- Run npm install
   local install_cmd = string.format("cd '%s' && npm install", mcp_dir)
   local install_result = vim.fn.system(install_cmd)
   if vim.v.shell_error ~= 0 then
-    vim.notify("Failed to install MCP dependencies: " .. install_result, vim.log.levels.ERROR)
+    notify.error("Failed to install MCP dependencies: " .. install_result)
     return false
   end
-  
+
   -- Run npm build
   local build_cmd = string.format("cd '%s' && npm run build", mcp_dir)
   local build_result = vim.fn.system(build_cmd)
   if vim.v.shell_error ~= 0 then
-    vim.notify("Failed to build MCP server: " .. build_result, vim.log.levels.ERROR)
+    notify.error("Failed to build MCP server: " .. build_result)
     return false
   end
-  
+
   -- MCP server built successfully
   return true
 end
@@ -71,37 +72,38 @@ end
 function M.build_async(config, callback)
   local root = get_plugin_root()
   local mcp_dir = root .. "/mcp-server"
-  
+  local notify = require("claucode.notify")
+
   -- Check if source files exist
   if vim.fn.isdirectory(mcp_dir) == 0 then
-    vim.notify("MCP server source not found at: " .. mcp_dir, vim.log.levels.ERROR)
+    notify.error("MCP server source not found at: " .. mcp_dir)
     if callback then callback(false) end
     return
   end
-  
+
   -- Building MCP server
-  
+
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
-    vim.notify("npm not found. Please install Node.js and npm to use diff preview.", vim.log.levels.ERROR)
+    notify.error("npm not found. Please install Node.js and npm to use diff preview.")
     if callback then callback(false) end
     return
   end
-  
+
   -- Run npm install first
   vim.fn.jobstart({"sh", "-c", "cd '" .. mcp_dir .. "' && npm install"}, {
     on_exit = function(_, install_code)
       if install_code ~= 0 then
-        vim.notify("Failed to install MCP dependencies", vim.log.levels.ERROR)
+        notify.error("Failed to install MCP dependencies")
         if callback then callback(false) end
         return
       end
-      
+
       -- Run npm build after install succeeds
       vim.fn.jobstart({"sh", "-c", "cd '" .. mcp_dir .. "' && npm run build"}, {
         on_exit = function(_, build_code)
           if build_code ~= 0 then
-            vim.notify("Failed to build MCP server", vim.log.levels.ERROR)
+            notify.error("Failed to build MCP server")
             if callback then callback(false) end
           else
             -- MCP server built successfully
@@ -349,7 +351,8 @@ end
 -- Setup MCP integration
 function M.setup(config)
   local root = get_plugin_root()
-  
+  local notify = require("claucode.notify")
+
   -- Check if MCP server is available
   local mcp_server = get_mcp_server_path()
   if not mcp_server and config.mcp and config.mcp.auto_build then
@@ -360,12 +363,12 @@ function M.setup(config)
       mcp_server = get_mcp_server_path()
     end
   end
-  
+
   if not mcp_server then
-    vim.notify("MCP server not available. Please run: cd " .. root .. "/mcp-server && npm install && npm run build", vim.log.levels.WARN)
+    notify.warn("MCP server not available. Please run: cd " .. root .. "/mcp-server && npm install && npm run build")
     return
   end
-  
+
   -- Start diff watcher if show_diff is enabled
   if config.bridge and config.bridge.show_diff then
     M.start_diff_watcher()
