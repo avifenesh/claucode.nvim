@@ -15,9 +15,21 @@ A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bring
 - 🔍 Visual selection support for context-aware assistance
 - 📝 Include file context with your prompts
 - 🔄 Real-time file watching for external changes
-- 🖥️ Terminal integration with split view  
+- 🖥️ Terminal integration with split view
 - 💬 Streaming responses in popup windows
 - 🎯 MCP-powered diff preview - Review changes before applying
+- 🔇 Configurable notifications - Control verbosity of status messages
+- 🎨 Optional icons - Enable/disable emojis in UI
+
+### New in v0.3
+
+- **Multi-session support**: Run multiple Neovim instances with isolated MCP servers per project
+- **Interactive prompt**: `:Claude` without arguments opens an input prompt
+- **Notification control**: Silence routine notifications while keeping errors visible
+- **Icon toggle**: Disable emojis for a cleaner terminal experience
+- **Improved path detection**: Better MCP server discovery across different install methods
+- **Automatic cleanup**: MCP servers are removed when Neovim exits
+
 <img width="1000" height="900" alt="image" src="https://github.com/user-attachments/assets/95ed7731-dd22-4d96-a63c-bf9136ab368b" />
 
 <img width="1000" height="671" alt="Screenshot 2025-08-04 at 6 31 51" src="https://github.com/user-attachments/assets/6dec7b8c-60a0-4d07-b298-e78168c6d8c8" />
@@ -32,7 +44,7 @@ A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bring
 
 - Neovim 0.5 or later
 - [Claude Code CLI](https://claude.ai/code) (`npm install -g @anthropic-ai/claude-code`)
-- `ANTHROPIC_API_KEY` environment variable or the app conncted using other login method
+- `ANTHROPIC_API_KEY` environment variable or connected using another login method
 
 ### Installation
 
@@ -88,8 +100,9 @@ require("claucode").setup({
 
   -- MCP settings
   mcp = {
-    enabled = true,      -- Enable MCP server (default: true)
-    auto_build = true,   -- Auto-build MCP server if not found (default: true)
+    enabled = true,         -- Enable MCP server (default: true)
+    auto_build = true,      -- Auto-build MCP server if not found (default: true)
+    cleanup_on_exit = true, -- Remove MCP server when Neovim exits (default: true)
   },
 
   -- UI settings
@@ -102,6 +115,15 @@ require("claucode").setup({
     terminal = {
       height = 0.5, -- Terminal height as fraction of screen (0.5 = 50%)
     },
+    icons = {
+      enabled = true, -- Set to false to disable icons/emojis
+    },
+  },
+
+  -- Notification settings
+  notifications = {
+    silent_watcher = true,    -- Don't notify on watcher start/stop
+    silent_claude_md = true,  -- Don't notify on CLAUDE.md updates
   },
 })
 ```
@@ -126,23 +148,30 @@ require("claucode").setup({
 ```
 
 **How it works:**
-1. The plugin automatically adds its MCP server to your Claude configuration using `claude mcp add`
-2. This preserves all your existing MCP servers while adding Neovim diff preview tools
-3. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
-4. When Claude wants to modify a file, a **side-by-side diff preview** appears:
+1. The plugin automatically adds a session-specific MCP server to your Claude configuration using `claude mcp add`
+2. Each Neovim instance gets its own isolated MCP server (based on project directory) to prevent cross-session interference
+3. This preserves all your existing MCP servers while adding Neovim diff preview tools
+4. Claude uses `nvim_edit_with_diff` and `nvim_write_with_diff` instead of standard file operations
+5. When Claude wants to modify a file, a **side-by-side diff preview** appears:
    - Left window shows the original file content
    - Right window shows the proposed changes
    - Neovim's built-in diff highlighting shows exactly what will change
-5. Review the changes and decide:
+6. Review the changes and decide:
    - Press `a` to accept the changes
    - Press `r` to reject the changes
    - Press `q` or `<Esc>` to close (same as reject)
    - Press `Tab`, `<C-h>`, or `<C-l>` to switch between windows
-6. The file is only modified after you approve the changes
+7. The file is only modified after you approve the changes
+8. When Neovim exits, the session-specific MCP server is automatically cleaned up (configurable via `mcp.cleanup_on_exit`)
 
 **Requirements:**
 - Node.js and npm (for building the MCP server)
 - The MCP server will be automatically built on first use
+
+**Multi-session support:**
+- Each Neovim instance running in a different project directory gets its own isolated MCP server
+- Session IDs are based on the project directory hash, ensuring no conflicts between sessions
+- This allows running multiple Neovim instances with diff preview simultaneously without interference
 
 ### CLAUDE.md Integration
 
@@ -182,7 +211,7 @@ This command will:
 
 ### Commands
 
-- `:Claude <prompt>` - Send a prompt to Claude (shows response in popup)
+- `:Claude [prompt]` - Send a prompt to Claude (shows response in popup). Without arguments, opens an input prompt.
 - `:Claude --file <prompt>` - Include current file context with prompt
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
@@ -208,7 +237,10 @@ With default prefix `<leader>ai`:
 ### Examples
 
 ```vim
-" Ask Claude a question
+" Open input prompt to ask Claude a question
+:Claude
+
+" Ask Claude a question directly
 :Claude How do I implement a binary search in Lua?
 
 " Review current file
@@ -227,6 +259,37 @@ With default prefix `<leader>ai`:
 :ClaudeTerminal --continue --mcp-config ../.mcp.json
 ```
 
+## Customization
+
+### Disabling Icons
+
+If you prefer a cleaner look without emojis in notifications and UI:
+
+```lua
+require("claucode").setup({
+  ui = {
+    icons = {
+      enabled = false,
+    },
+  },
+})
+```
+
+### Adjusting Notifications
+
+Control notification verbosity for routine operations:
+
+```lua
+require("claucode").setup({
+  notifications = {
+    silent_watcher = true,    -- Silence watcher start/stop notifications (default: true)
+    silent_claude_md = true,  -- Silence CLAUDE.md update notifications (default: true)
+  },
+})
+```
+
+Errors and warnings are always shown to ensure you don't miss important information.
+
 ## What This Is (and Isn't)
 
 **This plugin IS:**
@@ -243,6 +306,15 @@ With default prefix `<leader>ai`:
 It's a simple bridge - Claude does the AI work, this plugin handles the communication.
 
 ## Troubleshooting
+
+### Health Check
+
+Run `:checkhealth claucode` to diagnose common issues. This checks:
+- Neovim version compatibility
+- Claude CLI installation and version
+- API key configuration
+- MCP server build status
+- Required dependencies (Node.js, npm, git)
 
 ### Claude commands not working?
 
@@ -266,6 +338,18 @@ require("claucode").setup({
 - Check ignore patterns in your config
 - Verify file permissions
 - The watcher auto-starts with the plugin
+
+### Diff preview not working?
+
+1. **Check MCP is enabled**: Ensure `mcp.enabled = true` in config
+2. **Verify MCP server built**: Check `~/.config/claucode/mcp-server/build/index.js` exists
+3. **Rebuild MCP server**:
+   ```bash
+   cd ~/.local/share/nvim/lazy/claucode.nvim/mcp-server
+   npm install && npm run build
+   ```
+4. **Check Claude MCP list**: Run `claude mcp list` to see registered servers
+5. **Restart Claude session**: MCP changes require a new Claude terminal session
 
 ### Performance tips
 

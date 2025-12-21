@@ -50,3 +50,4 @@ package-lock.json
 .luarc.json
 .claude/
 CLAUDE.md
+.mcp.json

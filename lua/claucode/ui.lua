@@ -10,6 +10,18 @@ local content_accumulator = ""
 local stream_timer = nil -- Debounce timer for streaming messages
 local current_stream_message = ""
 
+-- Helper to get icon if enabled in config
+local function get_icon(icon)
+	local ok, claucode = pcall(require, "claucode")
+	if ok then
+		local config = claucode.get_config()
+		if config.ui and config.ui.icons and config.ui.icons.enabled then
+			return icon
+		end
+	end
+	return ""
+end
+
 -- Create streaming message window in bottom-right
 function M._create_stream_window()
 	-- Create stream buffer if it doesn't exist
@@ -208,50 +220,50 @@ end
 function M.start_streaming()
 	content_accumulator = ""
 	current_stream_message = ""
-	
+
 	-- Close any existing windows
 	M.close_stream_window()
 	M.close_tool_window()
-	
+
 	-- Show initial thinking message
-	M._show_stream_message("🤔 Claude is thinking...")
+	M._show_stream_message(get_icon("🤔 ") .. "Claude is thinking...")
 end
 
 function M.stream_content(text)
 	content_accumulator = content_accumulator .. text
-	
+
 	-- Show streaming content in bottom-right with debounce
 	local char_count = #content_accumulator
 	local preview = text:sub(1, 100) -- Show first 100 chars of current chunk
 	if #text > 100 then
 		preview = preview .. "..."
 	end
-	
-	local message = string.format("💭 Streaming... (%d chars)\n%s", char_count, preview)
+
+	local message = string.format("%sStreaming... (%d chars)\n%s", get_icon("💭 "), char_count, preview)
 	M._show_stream_message(message)
 end
 
 function M.on_tool_use(tool_data)
 	local tool_name = tool_data.name or "unknown"
-	local message = string.format("🔧 Using %s...", tool_name)
+	local message = string.format("%sUsing %s...", get_icon("🔧 "), tool_name)
 
 	-- Add specific messages for common tools
 	if tool_name == "Edit" then
 		local file = tool_data.input and tool_data.input.file_path or "file"
-		message = string.format("✏️  Editing %s...", vim.fn.fnamemodify(file, ":t"))
+		message = string.format("%sEditing %s...", get_icon("✏️  "), vim.fn.fnamemodify(file, ":t"))
 	elseif tool_name == "Write" then
 		local file = tool_data.input and tool_data.input.file_path or "file"
-		message = string.format("📝 Writing %s...", vim.fn.fnamemodify(file, ":t"))
+		message = string.format("%sWriting %s...", get_icon("📝 "), vim.fn.fnamemodify(file, ":t"))
 	elseif tool_name == "Read" then
 		local file = tool_data.input and tool_data.input.file_path or "file"
-		message = string.format("📖 Reading %s...", vim.fn.fnamemodify(file, ":t"))
+		message = string.format("%sReading %s...", get_icon("📖 "), vim.fn.fnamemodify(file, ":t"))
 	elseif tool_name == "Bash" then
 		local cmd = tool_data.input and tool_data.input.command or "command"
 		-- Truncate long commands
 		if #cmd > 30 then
 			cmd = cmd:sub(1, 27) .. "..."
 		end
-		message = string.format("🖥️  Running: %s", cmd)
+		message = string.format("%sRunning: %s", get_icon("🖥️  "), cmd)
 	end
 
 	-- Show tool usage in top-right
