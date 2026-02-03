@@ -27,13 +27,18 @@ function M.open_claude_terminal(cli_args)
     vim.api.nvim_set_current_buf(terminal_buf)
     terminal_win = vim.api.nvim_get_current_win()
     
-    local command = config.command
+    -- Build command as array to prevent injection
+    local cmd_args = {config.command}
     
+    -- Parse cli_args safely if provided
     if cli_args and cli_args ~= "" then
-      command = command .. " " .. cli_args
+      -- Split args by whitespace (simple tokenization)
+      for arg in cli_args:gmatch("%S+") do
+        table.insert(cmd_args, arg)
+      end
     end
     
-    terminal_job_id = vim.fn.termopen(command, {
+    terminal_job_id = vim.fn.termopen(cmd_args, {
       cwd = vim.fn.getcwd(),
       on_exit = function(job_id, exit_code, event_type)
         terminal_job_id = nil
@@ -48,13 +53,13 @@ function M.open_claude_terminal(cli_args)
     
     vim.api.nvim_buf_set_name(terminal_buf, 'Claude Terminal')
     
-    vim.api.nvim_buf_set_option(terminal_buf, 'buflisted', false)
-    vim.api.nvim_buf_set_option(terminal_buf, 'bufhidden', 'hide')
+    vim.bo[terminal_buf].buflisted = false
+    vim.bo[terminal_buf].bufhidden = 'hide'
   end
   
-  vim.api.nvim_win_set_option(terminal_win, 'number', false)
-  vim.api.nvim_win_set_option(terminal_win, 'relativenumber', false)
-  vim.api.nvim_win_set_option(terminal_win, 'signcolumn', 'no')
+  vim.wo[terminal_win].number = false
+  vim.wo[terminal_win].relativenumber = false
+  vim.wo[terminal_win].signcolumn = 'no'
   
   vim.cmd('startinsert')
   

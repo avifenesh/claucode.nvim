@@ -33,6 +33,33 @@ interface PendingDiff {
 
 const pendingDiffs = new Map<string, PendingDiff>();
 
+// Get the working directory (project root)
+// This is set by Neovim when spawning the MCP server
+function getWorkingDirectory(): string {
+  return process.cwd();
+}
+
+// Validate that a file path is within the project directory
+// Prevents path traversal attacks (e.g., ../../../etc/passwd)
+function validateFilePath(filePath: string): { valid: boolean; resolved: string; error?: string } {
+  const workDir = getWorkingDirectory();
+  
+  // Resolve the path to absolute, normalizing any .. or . components
+  const resolved = path.resolve(workDir, filePath);
+  
+  // Ensure the resolved path starts with the working directory
+  // This prevents escaping via ../ sequences
+  if (!resolved.startsWith(workDir + path.sep) && resolved !== workDir) {
+    return {
+      valid: false,
+      resolved,
+      error: `Path traversal rejected: ${filePath} resolves outside project directory`
+    };
+  }
+  
+  return { valid: true, resolved };
+}
+
 // Get communication directory
 // Supports session-specific directory via CLAUCODE_COMM_DIR environment variable
 // Falls back to legacy global directory for backwards compatibility
@@ -197,9 +224,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "nvim_edit_with_diff": {
       const { file_path, old_string, new_string } = EditFileSchema.parse(args);
       
+      // Validate path to prevent traversal attacks
+      const pathValidation = validateFilePath(file_path);
+      if (!pathValidation.valid) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error: ${pathValidation.error}`
+          }]
+        };
+      }
+      const safePath = pathValidation.resolved;
+      
       try {
-        // Read current content
-        const content = await fs.readFile(file_path, "utf-8");
+        // Read current content using validated path
+        const content = await fs.readFile(safePath, "utf-8");
         
         // Check if old_string exists
         if (!content.includes(old_string)) {
@@ -215,10 +254,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const modified = content.replace(old_string, new_string);
         
         // Show diff and wait for approval
-        const approved = await showDiffAndWait(file_path, content, modified);
+        const approved = await showDiffAndWait(safePath, content, modified);
 
         if (approved) {
-          await fs.writeFile(file_path, modified, "utf-8");
+          await fs.writeFile(safePath, modified, "utf-8");
           return {
             content: [{
               type: "text",
@@ -233,11 +272,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }]
           };
         }
-      } catch (error: any) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
         return {
           content: [{
             type: "text",
-            text: `Error: ${error.message}`
+            text: `Error: ${message}`
           }]
         };
       }
@@ -246,21 +286,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "nvim_write_with_diff": {
       const { file_path, content } = WriteFileSchema.parse(args);
       
+      // Validate path to prevent traversal attacks
+      const pathValidation = validateFilePath(file_path);
+      if (!pathValidation.valid) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error: ${pathValidation.error}`
+          }]
+        };
+      }
+      const safePath = pathValidation.resolved;
+      
       try {
         // Read current content if file exists
         let original = "";
         try {
-          original = await fs.readFile(file_path, "utf-8");
+          original = await fs.readFile(safePath, "utf-8");
         } catch {
-          // File doesn't exist
+          // File doesn't exist - that's okay for new files
         }
         
         // Show diff and wait for approval
-        const approved = await showDiffAndWait(file_path, original, content);
+        const approved = await showDiffAndWait(safePath, original, content);
         
         if (approved) {
-          await fs.mkdir(path.dirname(file_path), { recursive: true });
-          await fs.writeFile(file_path, content, "utf-8");
+          // Ensure parent directory exists (validated path is safe)
+          await fs.mkdir(path.dirname(safePath), { recursive: true });
+          await fs.writeFile(safePath, content, "utf-8");
           return {
             content: [{
               type: "text",
@@ -275,11 +328,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }]
           };
         }
-      } catch (error: any) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
         return {
           content: [{
             type: "text",
-            text: `Error: ${error.message}`
+            text: `Error: ${message}`
           }]
         };
       }

@@ -28,7 +28,8 @@ local function get_plugin_root()
   return plugin_root
 end
 
--- Build the MCP server
+-- Build the MCP server (synchronous)
+-- Uses array form to prevent shell injection
 local function build_mcp_server()
   local root = get_plugin_root()
   local mcp_dir = root .. "/mcp-server"
@@ -40,25 +41,21 @@ local function build_mcp_server()
     return false
   end
 
-  -- Building MCP server
-
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
     notify.error("npm not found. Please install Node.js and npm to use diff preview.")
     return false
   end
 
-  -- Run npm install
-  local install_cmd = string.format("cd '%s' && npm install", mcp_dir)
-  local install_result = vim.fn.system(install_cmd)
+  -- Run npm install using array form (safe from injection)
+  local install_result = vim.fn.system({"npm", "install", "--prefix", mcp_dir})
   if vim.v.shell_error ~= 0 then
     notify.error("Failed to install MCP dependencies: " .. install_result)
     return false
   end
 
-  -- Run npm build
-  local build_cmd = string.format("cd '%s' && npm run build", mcp_dir)
-  local build_result = vim.fn.system(build_cmd)
+  -- Run npm build using array form (safe from injection)
+  local build_result = vim.fn.system({"npm", "run", "build", "--prefix", mcp_dir})
   if vim.v.shell_error ~= 0 then
     notify.error("Failed to build MCP server: " .. build_result)
     return false
@@ -69,6 +66,7 @@ local function build_mcp_server()
 end
 
 -- Build the MCP server (async)
+-- Uses array form to prevent shell injection
 function M.build_async(config, callback)
   local root = get_plugin_root()
   local mcp_dir = root .. "/mcp-server"
@@ -81,8 +79,6 @@ function M.build_async(config, callback)
     return
   end
 
-  -- Building MCP server
-
   -- Check if npm is available
   if vim.fn.executable("npm") == 0 then
     notify.error("npm not found. Please install Node.js and npm to use diff preview.")
@@ -90,25 +86,28 @@ function M.build_async(config, callback)
     return
   end
 
-  -- Run npm install first
-  vim.fn.jobstart({"sh", "-c", "cd '" .. mcp_dir .. "' && npm install"}, {
+  -- Run npm install first (array form - safe from injection)
+  vim.fn.jobstart({"npm", "install", "--prefix", mcp_dir}, {
     on_exit = function(_, install_code)
       if install_code ~= 0 then
-        notify.error("Failed to install MCP dependencies")
+        vim.schedule(function()
+          notify.error("Failed to install MCP dependencies")
+        end)
         if callback then callback(false) end
         return
       end
 
-      -- Run npm build after install succeeds
-      vim.fn.jobstart({"sh", "-c", "cd '" .. mcp_dir .. "' && npm run build"}, {
+      -- Run npm build after install succeeds (array form - safe from injection)
+      vim.fn.jobstart({"npm", "run", "build", "--prefix", mcp_dir}, {
         on_exit = function(_, build_code)
-          if build_code ~= 0 then
-            notify.error("Failed to build MCP server")
-            if callback then callback(false) end
-          else
-            -- MCP server built successfully
-            if callback then callback(true) end
-          end
+          vim.schedule(function()
+            if build_code ~= 0 then
+              notify.error("Failed to build MCP server")
+              if callback then callback(false) end
+            else
+              if callback then callback(true) end
+            end
+          end)
         end
       })
     end
@@ -207,12 +206,12 @@ function M.show_diff_window(hash, filepath, original, modified)
   local orig_buf = vim.api.nvim_create_buf(false, true)
   local mod_buf = vim.api.nvim_create_buf(false, true)
   
-  -- Set buffer options
+  -- Set buffer options using modern vim.bo API
   for _, buf in ipairs({orig_buf, mod_buf}) do
-    vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-    vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-    vim.api.nvim_buf_set_option(buf, "swapfile", false)
-    vim.api.nvim_buf_set_option(buf, "modifiable", true)
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].bufhidden = "wipe"
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].modifiable = true
   end
   
   -- Set content
@@ -223,13 +222,13 @@ function M.show_diff_window(hash, filepath, original, modified)
   vim.api.nvim_buf_set_lines(mod_buf, 0, -1, false, modified_lines)
   
   -- Make buffers read-only
-  vim.api.nvim_buf_set_option(orig_buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(mod_buf, "modifiable", false)
+  vim.bo[orig_buf].modifiable = false
+  vim.bo[mod_buf].modifiable = false
   
   -- Set filetype based on file extension
   local ft = vim.filetype.match({ filename = filepath }) or "text"
-  vim.api.nvim_buf_set_option(orig_buf, "filetype", ft)
-  vim.api.nvim_buf_set_option(mod_buf, "filetype", ft)
+  vim.bo[orig_buf].filetype = ft
+  vim.bo[mod_buf].filetype = ft
   
   -- Calculate window sizes
   local total_width = math.floor(vim.o.columns * 0.9)
@@ -262,8 +261,8 @@ function M.show_diff_window(hash, filepath, original, modified)
   
   -- Create header buffer for instructions
   local header_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(header_buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(header_buf, "bufhidden", "wipe")
+  vim.bo[header_buf].buftype = "nofile"
+  vim.bo[header_buf].bufhidden = "wipe"
   
   local header_lines = {
     "Claucode Diff Preview: " .. vim.fn.fnamemodify(filepath, ":t"),
@@ -274,7 +273,7 @@ function M.show_diff_window(hash, filepath, original, modified)
   }
   
   vim.api.nvim_buf_set_lines(header_buf, 0, -1, false, header_lines)
-  vim.api.nvim_buf_set_option(header_buf, "modifiable", false)
+  vim.bo[header_buf].modifiable = false
   
   -- Create header window
   local header_win = vim.api.nvim_open_win(header_buf, false, {
@@ -289,12 +288,12 @@ function M.show_diff_window(hash, filepath, original, modified)
     title_pos = "center",
   })
   
-  -- Set window options for all windows
+  -- Set window options for all windows using modern vim.wo API
   for _, win in ipairs({left_win, right_win, header_win}) do
-    vim.api.nvim_win_set_option(win, "scrolloff", 0)
-    vim.api.nvim_win_set_option(win, "sidescrolloff", 0)
-    vim.api.nvim_win_set_option(win, "cursorline", false)
-    vim.api.nvim_win_set_option(win, "wrap", false)
+    vim.wo[win].scrolloff = 0
+    vim.wo[win].sidescrolloff = 0
+    vim.wo[win].cursorline = false
+    vim.wo[win].wrap = false
   end
   
   -- Enable diff mode for both windows

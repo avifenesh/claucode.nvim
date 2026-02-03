@@ -6,12 +6,6 @@ local current_stdin = nil
 local output_buffer = ""
 local callbacks = {}
 
-local function escape_prompt(prompt)
-  -- Escape special characters for shell
-  return prompt:gsub('"', '\\"'):gsub('\n', '\\n')
-end
-
-
 local function parse_streaming_json(line)
   if line == "" then return end
   

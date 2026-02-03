@@ -27,9 +27,9 @@ function M._create_stream_window()
 	-- Create stream buffer if it doesn't exist
 	if not stream_buf or not vim.api.nvim_buf_is_valid(stream_buf) then
 		stream_buf = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_option(stream_buf, "buftype", "nofile")
-		vim.api.nvim_buf_set_option(stream_buf, "swapfile", false)
-		vim.api.nvim_buf_set_option(stream_buf, "filetype", "markdown")
+		vim.bo[stream_buf].buftype = "nofile"
+		vim.bo[stream_buf].swapfile = false
+		vim.bo[stream_buf].filetype = "markdown"
 	end
 
 	-- Calculate window dimensions - bottom right corner
@@ -56,8 +56,8 @@ function M._create_stream_window()
 		})
 
 		-- Set window options
-		vim.api.nvim_win_set_option(stream_win, "wrap", true)
-		vim.api.nvim_win_set_option(stream_win, "linebreak", true)
+		vim.wo[stream_win].wrap = true
+		vim.wo[stream_win].linebreak = true
 	end
 end
 
@@ -90,9 +90,9 @@ function M._create_tool_window()
 	-- Create tool buffer if it doesn't exist
 	if not tool_buf or not vim.api.nvim_buf_is_valid(tool_buf) then
 		tool_buf = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_option(tool_buf, "buftype", "nofile")
-		vim.api.nvim_buf_set_option(tool_buf, "swapfile", false)
-		vim.api.nvim_buf_set_option(tool_buf, "filetype", "markdown")
+		vim.bo[tool_buf].buftype = "nofile"
+		vim.bo[tool_buf].swapfile = false
+		vim.bo[tool_buf].filetype = "markdown"
 	end
 
 	-- Calculate window dimensions - top right corner
@@ -119,8 +119,8 @@ function M._create_tool_window()
 		})
 
 		-- Set window options
-		vim.api.nvim_win_set_option(tool_win, "wrap", true)
-		vim.api.nvim_win_set_option(tool_win, "linebreak", true)
+		vim.wo[tool_win].wrap = true
+		vim.wo[tool_win].linebreak = true
 	end
 end
 
@@ -143,9 +143,9 @@ function M.show_response(content)
 	-- Create buffer if it doesn't exist
 	if not popup_buf or not vim.api.nvim_buf_is_valid(popup_buf) then
 		popup_buf = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_option(popup_buf, "buftype", "nofile")
-		vim.api.nvim_buf_set_option(popup_buf, "swapfile", false)
-		vim.api.nvim_buf_set_option(popup_buf, "filetype", "markdown")
+		vim.bo[popup_buf].buftype = "nofile"
+		vim.bo[popup_buf].swapfile = false
+		vim.bo[popup_buf].filetype = "markdown"
 	end
 
 	-- Split content into lines
@@ -178,8 +178,8 @@ function M.show_response(content)
 	})
 
 	-- Set window options
-	vim.api.nvim_win_set_option(popup_win, "wrap", true)
-	vim.api.nvim_win_set_option(popup_win, "linebreak", true)
+	vim.wo[popup_win].wrap = true
+	vim.wo[popup_win].linebreak = true
 
 	-- Add keymaps for the popup
 	local opts = { noremap = true, silent = true, buffer = popup_buf }

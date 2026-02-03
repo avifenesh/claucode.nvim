@@ -54,8 +54,8 @@ local function reload_buffer_if_changed(filepath)
       if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
         local buf_name = vim.api.nvim_buf_get_name(buf)
         if buf_name == filepath then
-          -- Check if buffer has unsaved changes
-          local modified = vim.api.nvim_buf_get_option(buf, "modified")
+          -- Check if buffer has unsaved changes using modern vim.bo API
+          local modified = vim.bo[buf].modified
           
           if not modified then
             -- Reload the buffer

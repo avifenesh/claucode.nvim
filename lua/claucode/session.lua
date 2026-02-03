@@ -14,10 +14,15 @@ function M.init()
   if cached_project_dir then
     return -- Already initialized
   end
-  cached_project_dir = vim.fn.fnamemodify(vim.fn.getcwd(), ":p"):gsub("/$", "")
+  -- Normalize path: get absolute path and remove trailing slash/backslash
+  cached_project_dir = vim.fn.fnamemodify(vim.fn.getcwd(), ":p")
+  -- Remove trailing path separator (works on both Windows and Unix)
+  cached_project_dir = cached_project_dir:gsub("[/\\]$", "")
   local hash = vim.fn.sha256(cached_project_dir):sub(1, 8)
   cached_session_id = "claucode-" .. hash
+  -- Use vim.fn.expand for cross-platform path handling
   local data_dir = vim.env.XDG_DATA_HOME or vim.fn.expand("~/.local/share")
+  -- Use forward slashes for consistency (Lua/Neovim handles this on Windows)
   cached_comm_dir = data_dir .. "/claucode/diffs/" .. cached_session_id
 end
 

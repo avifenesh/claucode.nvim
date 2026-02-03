@@ -39,6 +39,7 @@ package-lock.json
 # IDE
 .vscode/
 .idea/
+.github/
 
 # Build artifacts
 *.rock
