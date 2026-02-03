@@ -303,8 +303,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let original = "";
         try {
           original = await fs.readFile(safePath, "utf-8");
-        } catch {
-          // File doesn't exist - that's okay for new files
+        } catch (error) {
+          // File doesn't exist is fine, but rethrow other errors
+          if (!(error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT')) {
+            throw error;
+          }
         }
         
         // Show diff and wait for approval

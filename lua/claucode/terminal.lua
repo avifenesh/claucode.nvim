@@ -32,9 +32,41 @@ function M.open_claude_terminal(cli_args)
     
     -- Parse cli_args safely if provided
     if cli_args and cli_args ~= "" then
-      -- Split args by whitespace (simple tokenization)
-      for arg in cli_args:gmatch("%S+") do
-        table.insert(cmd_args, arg)
+      -- Robust tokenization that handles quoted strings
+      local i = 1
+      local len = #cli_args
+      while i <= len do
+        -- Skip whitespace
+        while i <= len and cli_args:sub(i, i):match("%s") do
+          i = i + 1
+        end
+        if i > len then break end
+        
+        local char = cli_args:sub(i, i)
+        local arg = ""
+        
+        if char == '"' or char == "'" then
+          -- Quoted argument: find matching closing quote
+          local quote = char
+          i = i + 1
+          local start = i
+          while i <= len and cli_args:sub(i, i) ~= quote do
+            i = i + 1
+          end
+          arg = cli_args:sub(start, i - 1)
+          i = i + 1 -- skip closing quote
+        else
+          -- Unquoted argument: read until whitespace
+          local start = i
+          while i <= len and not cli_args:sub(i, i):match("%s") do
+            i = i + 1
+          end
+          arg = cli_args:sub(start, i - 1)
+        end
+        
+        if arg ~= "" then
+          table.insert(cmd_args, arg)
+        end
       end
     end
     
