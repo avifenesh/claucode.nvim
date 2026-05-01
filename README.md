@@ -42,9 +42,10 @@ A lightweight Neovim plugin that bridges your editor with Claude Code CLI, bring
 
 ### Prerequisites
 
-- Neovim 0.5 or later
+- Neovim 0.10 or later (uses `vim.system`, `vim.uv`, and modern `vim.health`)
 - [Claude Code CLI](https://claude.ai/code) (`npm install -g @anthropic-ai/claude-code`)
-- `ANTHROPIC_API_KEY` environment variable or connected using another login method
+- `ANTHROPIC_API_KEY` environment variable or a logged-in Claude CLI session
+- Node.js + npm (only needed if the MCP server has to be built locally)
 
 ### Installation
 
@@ -209,13 +210,34 @@ This command will:
 
 **Note:** Diff preview requires `mcp.enabled = true` in your configuration. If MCP is disabled, the toggle command will show a warning.
 
+### Auto-accept (runtime passthrough)
+
+Sometimes you want Claude to just *apply* edits without the review step — e.g. during an autonomous run. Toggle it mid-session, no restart required:
+
+```vim
+:ClaudeAutoAccept          " flip current state
+:ClaudeAutoAccept on       " explicitly enable
+:ClaudeAutoAccept off      " explicitly disable (back to diff preview)
+```
+
+Or set it at startup:
+
+```lua
+require("claucode").setup({
+  bridge = { auto_accept = true },
+})
+```
+
+Unlike `:ClaudeDiffToggle`, this does **not** tear down the MCP server or rewrite `CLAUDE.md`. The very next `nvim_edit_with_diff` / `nvim_write_with_diff` call will honor the new state. The flag is cleared automatically when Neovim exits.
+
 ### Commands
 
 - `:Claude [prompt]` - Send a prompt to Claude (shows response in popup). Without arguments, opens an input prompt.
 - `:Claude --file <prompt>` - Include current file context with prompt
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
-- `:ClaudeDiffToggle` - Toggle diff preview on/off
+- `:ClaudeDiffToggle` - Toggle diff preview on/off (tears down MCP; requires Claude session restart)
+- `:ClaudeAutoAccept [on|off]` - Toggle MCP auto-accept (passthrough); takes effect on the next tool call
 
 ### Default Keymaps
 

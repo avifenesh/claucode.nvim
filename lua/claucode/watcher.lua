@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.loop
+local uv = vim.uv or vim.loop
 local watchers = {}
 local file_timestamps = {}
 local debounce_timers = {}

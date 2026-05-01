@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.loop
+local uv = vim.uv or vim.loop
 local current_process = nil
 local current_stdin = nil
 local output_buffer = ""

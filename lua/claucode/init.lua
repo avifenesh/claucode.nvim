@@ -2,19 +2,17 @@
 -- Repository: https://github.com/avifenesh/claucode.nvim
 -- License: MIT
 -- Author: Avi Fenesh
--- Version: 0.3.0
 
 local M = {
-	-- Plugin version
-	version = "0.3.0",
+	version = "0.3.1",
 }
 
 -- Default configuration
 M.config = {
-	-- Claude Code CLI command
+	-- Claude Code CLI command (looked up on PATH by default)
 	command = "claude",
-	-- Default model to use
-	model = "claude-sonnet-4-20250514",
+	-- Model override: nil = let the Claude Code CLI pick its default
+	model = nil,
 	-- Auto-start file watcher on setup
 	auto_start_watcher = true,
 	-- Enable default keymaps
@@ -74,10 +72,15 @@ M.config = {
 		timeout = 30000,
 		-- Max output buffer size
 		max_output = 1048576, -- 1MB
-		-- Show diff before applying changes (requires MCP)
-		show_diff = false,
+		-- Show diff before applying changes (requires MCP). Flagship feature — on by default.
+		show_diff = true,
 		-- Automatically add diff instructions to CLAUDE.md
 		auto_claude_md = true,
+		-- Auto-accept (passthrough): if true, the MCP server writes files
+		-- immediately without prompting in Neovim. Toggle at runtime with
+		-- :ClaudeAutoAccept — takes effect on the very next tool call, no
+		-- Claude session restart required.
+		auto_accept = false,
 	},
 	-- MCP settings
 	mcp = {
@@ -128,14 +131,12 @@ local function find_claude_command()
 	}
 
 	for _, path in ipairs(common_paths) do
-		-- Check if file exists and is readable
-		if vim.fn.filereadable(path) == 1 then
-			-- Test if we can actually run it
-			local handle = io.popen(path .. " --version 2>&1")
-			if handle then
-				local result = handle:read("*a")
-				handle:close()
-				if result:match("Claude Code") then
+		if vim.fn.filereadable(path) == 1 and vim.fn.executable(path) == 1 then
+			-- Non-blocking spawn; 2s timeout is plenty for --version
+			local ok, proc = pcall(vim.system, { path, "--version" }, { text = true, timeout = 2000 })
+			if ok and proc then
+				local result = proc:wait(2000)
+				if result and result.code == 0 and (result.stdout or ""):match("Claude Code") then
 					return path
 				end
 			end
@@ -159,6 +160,15 @@ local function merge_config(user_config)
 end
 
 function M.setup(user_config)
+	-- Neovim version guard: we rely on vim.system (0.10+) and vim.health (0.10+)
+	if vim.fn.has("nvim-0.10") ~= 1 then
+		vim.notify(
+			"claucode.nvim requires Neovim 0.10+ (current: " .. tostring(vim.version()) .. ")",
+			vim.log.levels.ERROR
+		)
+		return
+	end
+
 	merge_config(user_config)
 
 	-- Validate configuration
@@ -198,6 +208,8 @@ function M.setup(user_config)
 				if M.config.bridge.show_diff then
 					require("claucode.mcp").cleanup()
 				end
+				-- Always clear the passthrough flag on exit
+				M.set_auto_accept(false)
 				-- Remove MCP server if cleanup_on_exit is enabled
 				if M.config.mcp.cleanup_on_exit ~= false then
 					require("claucode.mcp_manager").remove_mcp_server()
@@ -205,6 +217,14 @@ function M.setup(user_config)
 			end,
 			desc = "Claucode cleanup on exit"
 		})
+
+		-- Honor initial config.bridge.auto_accept
+		if M.config.bridge.auto_accept then
+			M.set_auto_accept(true)
+		else
+			-- Clear any stale flag from a previous crashed session
+			M.set_auto_accept(false)
+		end
 	end
 
 	-- Setup CLAUDE.md management for diff preview
@@ -255,6 +275,29 @@ function M.setup(user_config)
 
 
 
+	vim.api.nvim_create_user_command("ClaudeAutoAccept", function(opts)
+		local notify = require("claucode.notify")
+		local arg = vim.trim(opts.args or ""):lower()
+		local target
+		if arg == "on" or arg == "true" or arg == "1" then
+			target = true
+		elseif arg == "off" or arg == "false" or arg == "0" then
+			target = false
+		else
+			target = not M.config.bridge.auto_accept
+		end
+		M.set_auto_accept(target)
+		if target then
+			notify.info("Claucode auto-accept ON — MCP writes bypass the diff UI")
+		else
+			notify.info("Claucode auto-accept OFF — diff UI will prompt again")
+		end
+	end, {
+		nargs = "?",
+		complete = function() return { "on", "off" } end,
+		desc = "Toggle MCP auto-accept (passthrough). Runtime switch; no session restart.",
+	})
+
 	vim.api.nvim_create_user_command("ClaudeDiffToggle", function()
 		local notify = require("claucode.notify")
 		-- Toggle the show_diff configuration
@@ -298,77 +341,25 @@ function M.get_config()
 	return M.config
 end
 
--- Health check function for :checkhealth
-function M.health()
-	local health = vim.health or require("health")
-	local start = health.start or health.report_start
-	local ok = health.ok or health.report_ok
-	local warn = health.warn or health.report_warn
-	local error = health.error or health.report_error
-	
-	start("claucode.nvim")
-	
-	-- Check Neovim version
-	if vim.fn.has("nvim-0.5.0") == 1 then
-		ok("Neovim version >= 0.5.0")
+-- Set the MCP passthrough flag. When on, the MCP server writes files
+-- immediately without asking Neovim — effect is picked up by the very next
+-- tool call. No Claude session restart, no CLAUDE.md changes.
+local function set_passthrough(enabled)
+	local comm_dir = require("claucode.session").get_communication_dir()
+	vim.fn.mkdir(comm_dir, "p")
+	local flag = comm_dir .. "/passthrough.flag"
+	if enabled then
+		vim.fn.writefile({ tostring(os.time()) }, flag)
 	else
-		error("Neovim version < 0.5.0. Please upgrade Neovim.")
-	end
-	
-	-- Check Claude CLI
-	local claude_cmd = M.config.command or "claude"
-	if vim.fn.executable(claude_cmd) == 1 then
-		ok("Claude Code CLI found: " .. claude_cmd)
-		
-		-- Check version
-		local handle = io.popen(claude_cmd .. " --version 2>&1")
-		if handle then
-			local version = handle:read("*a")
-			handle:close()
-			if version and version:match("Claude Code") then
-				ok("Claude Code CLI version: " .. version:gsub("\n", ""))
-			end
-		end
-	else
-		error("Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
-	end
-	
-	-- Check API key
-	if vim.fn.getenv("ANTHROPIC_API_KEY") ~= vim.NIL then
-		ok("ANTHROPIC_API_KEY is set")
-	else
-		warn("ANTHROPIC_API_KEY not set. You may need to authenticate via other methods.")
-	end
-	
-	-- Check MCP server if enabled
-	if M.config.mcp.enabled then
-		local mcp_server_path = vim.fn.expand("~/.config/claucode/mcp-server/build/index.js")
-		if vim.fn.filereadable(mcp_server_path) == 1 then
-			ok("MCP server built and ready")
-		else
-			warn("MCP server not built. Will be built on first use.")
+		if vim.fn.filereadable(flag) == 1 then
+			os.remove(flag)
 		end
 	end
-	
-	-- Check Git (for diff functionality)
-	if vim.fn.executable("git") == 1 then
-		ok("Git is installed")
-	else
-		warn("Git not found. Diff functionality may be limited.")
-	end
-	
-	-- Check Node.js and npm (for MCP)
-	if vim.fn.executable("node") == 1 then
-		ok("Node.js is installed")
-	else
-		warn("Node.js not found. Required for MCP server.")
-	end
-	
-	if vim.fn.executable("npm") == 1 then
-		ok("npm is installed")
-	else
-		warn("npm not found. Required for installing Claude CLI and building MCP server.")
-	end
+	M.config.bridge.auto_accept = enabled
+end
+
+function M.set_auto_accept(enabled)
+	set_passthrough(enabled and true or false)
 end
 
 -- Utility function to get plugin status
@@ -403,7 +394,7 @@ function M.debug_info()
 		config = M.config,
 		status = M.status(),
 		nvim_version = vim.version().major .. "." .. vim.version().minor .. "." .. vim.version().patch,
-		os = vim.loop.os_uname().sysname,
+		os = (vim.uv or vim.loop).os_uname().sysname,
 		cwd = vim.fn.getcwd(),
 	}
 	

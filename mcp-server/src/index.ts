@@ -52,6 +52,19 @@ async function ensureCommunicationDir(): Promise<string> {
   return dir;
 }
 
+// Runtime auto-accept (passthrough) flag. When set, tool calls skip the
+// Neovim round-trip entirely and write immediately. Controlled by the Lua
+// side via :ClaudeAutoAccept / bridge.auto_accept config.
+async function isPassthroughActive(): Promise<boolean> {
+  try {
+    const dir = getCommunicationDir();
+    await fs.access(path.join(dir, "passthrough.flag"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Create hash for diff identification
 function createDiffHash(filepath: string, original: string, modified: string): string {
   return createHash('sha256')
@@ -196,12 +209,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (name) {
     case "nvim_edit_with_diff": {
       const { file_path, old_string, new_string } = EditFileSchema.parse(args);
-      
+
       try {
-        // Read current content
         const content = await fs.readFile(file_path, "utf-8");
-        
-        // Check if old_string exists
+
         if (!content.includes(old_string)) {
           return {
             content: [{
@@ -210,11 +221,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }]
           };
         }
-        
-        // Create modified content
+
         const modified = content.replace(old_string, new_string);
-        
-        // Show diff and wait for approval
+
+        // Runtime passthrough: auto-accept without round-tripping to Neovim
+        if (await isPassthroughActive()) {
+          await fs.writeFile(file_path, modified, "utf-8");
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully edited ${file_path} (auto-accepted)`
+            }]
+          };
+        }
+
         const approved = await showDiffAndWait(file_path, content, modified);
 
         if (approved) {
@@ -242,22 +262,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
     }
-    
+
     case "nvim_write_with_diff": {
       const { file_path, content } = WriteFileSchema.parse(args);
-      
+
       try {
-        // Read current content if file exists
         let original = "";
         try {
           original = await fs.readFile(file_path, "utf-8");
         } catch {
           // File doesn't exist
         }
-        
-        // Show diff and wait for approval
+
+        // Runtime passthrough: auto-accept without round-tripping to Neovim
+        if (await isPassthroughActive()) {
+          await fs.mkdir(path.dirname(file_path), { recursive: true });
+          await fs.writeFile(file_path, content, "utf-8");
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully wrote ${file_path} (auto-accepted)`
+            }]
+          };
+        }
+
         const approved = await showDiffAndWait(file_path, original, content);
-        
+
         if (approved) {
           await fs.mkdir(path.dirname(file_path), { recursive: true });
           await fs.writeFile(file_path, content, "utf-8");
