@@ -136,7 +136,7 @@ local function find_claude_command()
 			local ok, proc = pcall(vim.system, { path, "--version" }, { text = true, timeout = 2000 })
 			if ok and proc then
 				local result = proc:wait(2000)
-				if result.code == 0 and (result.stdout or ""):match("Claude Code") then
+				if result and result.code == 0 and (result.stdout or ""):match("Claude Code") then
 					return path
 				end
 			end
@@ -209,7 +209,7 @@ function M.setup(user_config)
 					require("claucode.mcp").cleanup()
 				end
 				-- Always clear the passthrough flag on exit
-				pcall(set_passthrough, false)
+				M.set_auto_accept(false)
 				-- Remove MCP server if cleanup_on_exit is enabled
 				if M.config.mcp.cleanup_on_exit ~= false then
 					require("claucode.mcp_manager").remove_mcp_server()
@@ -220,10 +220,10 @@ function M.setup(user_config)
 
 		-- Honor initial config.bridge.auto_accept
 		if M.config.bridge.auto_accept then
-			set_passthrough(true)
+			M.set_auto_accept(true)
 		else
 			-- Clear any stale flag from a previous crashed session
-			set_passthrough(false)
+			M.set_auto_accept(false)
 		end
 	end
 
@@ -286,7 +286,7 @@ function M.setup(user_config)
 		else
 			target = not M.config.bridge.auto_accept
 		end
-		set_passthrough(target)
+		M.set_auto_accept(target)
 		if target then
 			notify.info("Claucode auto-accept ON — MCP writes bypass the diff UI")
 		else

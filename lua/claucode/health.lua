@@ -13,7 +13,7 @@ local function run_version(cmd)
 	local ok, result = pcall(vim.system, { cmd, "--version" }, { text = true, timeout = 2000 })
 	if not ok or not result then return nil end
 	local done = result:wait(2000)
-	if done.code ~= 0 then return nil end
+	if not done or done.code ~= 0 then return nil end
 	return vim.trim((done.stdout or "") .. (done.stderr or ""))
 end
 
