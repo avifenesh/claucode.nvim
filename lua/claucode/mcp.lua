@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.loop
+local uv = vim.uv or vim.loop
 local mcp_process = nil
 local pending_diffs = {}
 
