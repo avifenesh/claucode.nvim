@@ -77,9 +77,6 @@ require("claucode").setup({
   -- Use full path if claude is not in your PATH
   command = "claude",  -- or "/home/username/.claude/local/claude"
 
-  -- Model override (default: nil, the Claude CLI picks its default)
-  model = nil,
-
   -- Auto-start file watcher on setup
   auto_start_watcher = true,
 
