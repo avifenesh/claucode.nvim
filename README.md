@@ -77,6 +77,9 @@ require("claucode").setup({
   -- Use full path if claude is not in your PATH
   command = "claude",  -- or "/home/username/.claude/local/claude"
 
+  -- Model override (default: nil, the Claude CLI picks its default)
+  model = nil,
+
   -- Auto-start file watcher on setup
   auto_start_watcher = true,
 
@@ -96,7 +99,9 @@ require("claucode").setup({
   bridge = {
     timeout = 30000,     -- milliseconds
     max_output = 1048576, -- 1MB
-    show_diff = false,   -- Enable diff preview (requires MCP, default: false)
+    show_diff = true,    -- Enable diff preview (requires MCP, default: true)
+    auto_claude_md = true, -- Add diff instructions to CLAUDE.md (default: true)
+    auto_accept = false, -- Write files without the diff UI (default: false)
   },
 
   -- MCP settings
@@ -143,7 +148,7 @@ require("claucode").setup({
     auto_build = true,  -- Auto-build MCP server if not found (default: true)
   },
   bridge = {
-    show_diff = true,   -- Enable diff preview (requires MCP)
+    show_diff = true,   -- Enable diff preview (requires MCP, default: true)
   }
 })
 ```
@@ -233,7 +238,8 @@ Unlike `:ClaudeDiffToggle`, this does **not** tear down the MCP server or rewrit
 ### Commands
 
 - `:Claude [prompt]` - Send a prompt to Claude (shows response in popup). Without arguments, opens an input prompt.
-- `:Claude --file <prompt>` - Include current file context with prompt
+- `:Claude --file <prompt>` (or `-f`) - Include current file context with prompt
+- `:Claude -c <prompt>` - Continue the previous conversation
 - `:ClaudeTerminal [cli_args]` - Open Claude in a terminal split with optional CLI parameters
 - `:ClaudeTerminalToggle` - Toggle Claude terminal visibility
 - `:ClaudeDiffToggle` - Toggle diff preview on/off (tears down MCP; requires Claude session restart)
@@ -249,6 +255,7 @@ With default prefix `<leader>ai`:
 - `<leader>aie` - Explain code (selection or file)
 - `<leader>aix` - Fix issues in code
 - `<leader>ait` - Generate tests
+- `<leader>aia` - Complete code at cursor
 - `<leader>aio` - Open Claude terminal
 - `<leader>aiT` - Toggle Claude terminal
 
@@ -364,7 +371,7 @@ require("claucode").setup({
 ### Diff preview not working?
 
 1. **Check MCP is enabled**: Ensure `mcp.enabled = true` in config
-2. **Verify MCP server built**: Check `~/.config/claucode/mcp-server/build/index.js` exists
+2. **Verify MCP server built**: Check `mcp-server/build/index.js` exists in the plugin directory (or run `:checkhealth claucode`)
 3. **Rebuild MCP server**:
    ```bash
    cd ~/.local/share/nvim/lazy/claucode.nvim/mcp-server
